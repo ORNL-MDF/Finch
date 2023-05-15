@@ -1,0 +1,7 @@
+# Autosave files
+*.DS_Store
+*~
+*.swp
+
+# Build files
+**/build

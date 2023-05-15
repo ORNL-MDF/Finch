@@ -1,0 +1,7 @@
+/home/8s2/FD-AM-new/build/CMakeFiles/install/strip.dir
+/home/8s2/FD-AM-new/build/CMakeFiles/edit_cache.dir
+/home/8s2/FD-AM-new/build/CMakeFiles/heat_equation.dir
+/home/8s2/FD-AM-new/build/CMakeFiles/install.dir
+/home/8s2/FD-AM-new/build/CMakeFiles/rebuild_cache.dir
+/home/8s2/FD-AM-new/build/CMakeFiles/list_install_components.dir
+/home/8s2/FD-AM-new/build/CMakeFiles/install/local.dir

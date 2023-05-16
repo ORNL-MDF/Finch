@@ -1,16 +1,44 @@
 #include <Cajita.hpp>
-
 #include <Kokkos_Core.hpp>
-
 #include <mpi.h>
-
 #include <array>
 
+/*
 template <class array_t>
 void setInternalField(array_t& field, double value)
 {
     Cajita::ArrayOp::assign( field, value, Cajita::Ghost() );
     Cajita::ArrayOp::assign( field, value, Cajita::Own() );
+}
+*/
+
+// helper function to loop over all boundaries and set values
+template <class ExecutionSpace, class grid_t, class array_t>
+void updateBoundaries(ExecutionSpace exec_space, grid_t local_grid, array_t& field)
+{
+    for ( int d = 0; d < 3; d++ )
+    {
+        for ( int dir = -1; dir < 2; dir += 2 )
+        {
+            std::array<int, 3> plane = { 0, 0, 0 };
+
+            plane[d] = dir;
+
+            auto boundary_space = local_grid->boundaryIndexSpace(
+                Cajita::Ghost(), Cajita::Cell(), plane);
+
+            Cajita::grid_parallel_for
+            (
+                "boundary_grid_for",
+                exec_space,
+                boundary_space,
+                KOKKOS_LAMBDA( const int i, const int j, const int k )
+                {
+                    field( i, j, k, 0 ) = 1.0;
+                }
+            );
+        }
+    }
 }
 
 void createGrid()
@@ -54,16 +82,10 @@ void createGrid()
 
     std::string name( "temperature" );
     auto T = Cajita::createArray<double, device_type>( name, layout );
-
-    setInternalField(*T, 0.0);
+    Cajita::ArrayOp::assign( field, value, Cajita::Ghost() );
+    Cajita::ArrayOp::assign( field, value, Cajita::Own() );
 
     auto T_view = T->view();
-
-    // update boundary conditions
-    // TODO : make a boudnary space that contains all boundaries
-    auto boundary_space = local_grid->boundaryIndexSpace(
-            Cajita::Own(), Cajita::Cell(), { 0, 0, 1 } );
-
 
     auto internal_space = local_grid->indexSpace(
             Cajita::Own(), Cajita::Cell(), Cajita::Local());
@@ -73,23 +95,12 @@ void createGrid()
 
     double alpha = 0.1;
     double dt = 0.1;
-    int numSteps = 10000;
-    
+    int numSteps = 1000;
+
+    updateBoundaries(exec_space(), local_grid, T_view);
+
     for (int step = 0; step < numSteps; ++step)
     {
-        // Update boundary conditions
-        Cajita::grid_parallel_for
-        (
-            "boundary_grid_for",
-            exec_space(),
-            boundary_space,
-            KOKKOS_LAMBDA( const int i, const int j, const int k )
-            {
-                T_view( i, j, k, 0 ) = 1.0;
-            }
-        );
-
-        
         // Solve finite difference
         Cajita::grid_parallel_for
         (
@@ -98,19 +109,6 @@ void createGrid()
             internal_space,
             KOKKOS_LAMBDA( const int i, const int j, const int k )
             {
-                /*
-                // if we want to avoid the boundaries
-                if 
-                (
-                    (i >= internal_space.min(0)) 
-                 && (j >= internal_space.min(1))
-                 && (k >= internal_space.min(2))
-
-                 && (i <= internal_space.max(0)) 
-                 && (j <= internal_space.max(1)) 
-                 && (k <= internal_space.max(2)) 
-                )
-                */
                 {
                     double laplacian =
                       - 6.0*T_view(i, j, k, 0)
@@ -122,10 +120,12 @@ void createGrid()
                 }
             }
         );
+        
+        // update the boundary conditions
+        updateBoundaries( exec_space(), local_grid, T_view);
 
         // Exchange halo values
         halo->gather(  exec_space(), *T );
-        //halo->scatter( exec_space(), Cajita::ScatterReduce::Replace(), *T );
     }
 
     Cajita::Experimental::BovWriter::writeTimeStep(0, 0, *T);

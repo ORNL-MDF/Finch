@@ -54,10 +54,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/8s2/FD-AM-new
+CMAKE_SOURCE_DIR = /home/8s2/finite-difference-cajita
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/8s2/FD-AM-new/build
+CMAKE_BINARY_DIR = /home/8s2/finite-difference-cajita/build
 
 #=============================================================================
 # Directory level rules for the build root directory
@@ -81,14 +81,14 @@ clean: CMakeFiles/heat_equation.dir/clean
 CMakeFiles/heat_equation.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/heat_equation.dir/build.make CMakeFiles/heat_equation.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/heat_equation.dir/build.make CMakeFiles/heat_equation.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/8s2/FD-AM-new/build/CMakeFiles --progress-num=1,2 "Built target heat_equation"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/8s2/finite-difference-cajita/build/CMakeFiles --progress-num=1,2 "Built target heat_equation"
 .PHONY : CMakeFiles/heat_equation.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/heat_equation.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/8s2/FD-AM-new/build/CMakeFiles 2
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/8s2/finite-difference-cajita/build/CMakeFiles 2
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/heat_equation.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/8s2/FD-AM-new/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/8s2/finite-difference-cajita/build/CMakeFiles 0
 .PHONY : CMakeFiles/heat_equation.dir/rule
 
 # Convenience name for target.

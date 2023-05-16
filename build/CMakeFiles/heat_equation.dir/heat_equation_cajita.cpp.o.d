@@ -1,15 +1,16 @@
 CMakeFiles/heat_equation.dir/heat_equation_cajita.cpp.o: \
- /home/8s2/FD-AM-new/heat_equation_cajita.cpp /usr/include/stdc-predef.h \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_Config.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_Array.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_IndexSpace.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Core.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Core_fwd.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Macros.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/KokkosCore_config.h \
- /home/8s2/FD-AM-new/kokkos/build/install/include/KokkosCore_Config_SetupBackend.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_Error.hpp \
+ /home/8s2/finite-difference-cajita/heat_equation_cajita.cpp \
+ /usr/include/stdc-predef.h \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_Config.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_Array.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_IndexSpace.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Core.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Core_fwd.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Macros.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/KokkosCore_config.h \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/KokkosCore_Config_SetupBackend.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_Error.hpp \
  /usr/include/c++/8/string \
  /usr/include/c++/8/x86_64-redhat-linux/bits/c++config.h \
  /usr/include/bits/wordsize.h \
@@ -105,21 +106,21 @@ CMakeFiles/heat_equation.dir/heat_equation_cajita.cpp.o: \
  /usr/include/asm/errno.h /usr/include/asm-generic/errno.h \
  /usr/include/asm-generic/errno-base.h /usr/include/bits/types/error_t.h \
  /usr/include/c++/8/bits/basic_string.tcc \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_Utilities.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_Utilities.hpp \
  /usr/include/c++/8/utility /usr/include/c++/8/bits/stl_relops.h \
- /home/8s2/FD-AM-new/kokkos/build/install/include/KokkosCore_Config_FwdBackend.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/fwd/Kokkos_Fwd_OPENMP.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/KokkosCore_Config_DeclareBackend.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/decl/Kokkos_Declare_OPENMP.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_OpenMP.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/KokkosCore_Config_FwdBackend.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/fwd/Kokkos_Fwd_OPENMP.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/KokkosCore_Config_DeclareBackend.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/decl/Kokkos_Declare_OPENMP.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_OpenMP.hpp \
  /usr/include/c++/8/cstddef \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_HostSpace.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_HostSpace.hpp \
  /usr/include/c++/8/cstring /usr/include/string.h /usr/include/strings.h \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Concepts.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_DetectionIdiom.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_MemoryTraits.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_Traits.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_BitOps.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Concepts.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_DetectionIdiom.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_MemoryTraits.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_Traits.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_BitOps.hpp \
  /usr/include/c++/8/climits \
  /usr/lib/gcc/x86_64-redhat-linux/8/include/limits.h \
  /usr/lib/gcc/x86_64-redhat-linux/8/include/syslimits.h \
@@ -127,14 +128,14 @@ CMakeFiles/heat_equation.dir/heat_equation_cajita.cpp.o: \
  /usr/include/bits/local_lim.h /usr/include/linux/limits.h \
  /usr/include/bits/posix2_lim.h /usr/include/bits/xopen_lim.h \
  /usr/include/bits/uio_lim.h \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_SharedAlloc.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_Tools.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_Profiling.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_Profiling_Interface.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_SharedAlloc.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_Tools.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_Profiling.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_Profiling_Interface.hpp \
  /usr/include/c++/8/cinttypes /usr/include/inttypes.h \
  /usr/include/dlfcn.h /usr/include/bits/dlfcn.h \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_Profiling_DeviceInfo.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_Profiling_C_Interface.h \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_Profiling_DeviceInfo.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_Profiling_C_Interface.h \
  /usr/include/c++/8/memory /usr/include/c++/8/bits/stl_construct.h \
  /usr/include/c++/8/bits/stl_uninitialized.h \
  /usr/include/c++/8/bits/stl_tempbuf.h \
@@ -164,82 +165,82 @@ CMakeFiles/heat_equation.dir/heat_equation_cajita.cpp.o: \
  /usr/include/c++/8/system_error \
  /usr/include/c++/8/x86_64-redhat-linux/bits/error_constants.h \
  /usr/include/c++/8/bits/std_mutex.h \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_HostSpace_deepcopy.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_MemorySpace.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_ScratchSpace.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Parallel.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_ExecPolicy.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_AnalyzePolicy.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/traits/Kokkos_Traits_fwd.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/traits/Kokkos_PolicyTraitAdaptor.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/traits/Kokkos_ExecutionSpaceTrait.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/traits/Kokkos_GraphKernelTrait.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_GraphImpl_fwd.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/traits/Kokkos_IndexTypeTrait.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/traits/Kokkos_IterationPatternTrait.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Rank.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Layout.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/traits/Kokkos_LaunchBoundsTrait.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/traits/Kokkos_OccupancyControlTrait.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/traits/Kokkos_ScheduleTrait.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/traits/Kokkos_WorkItemPropertyTrait.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/traits/Kokkos_WorkTagTrait.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_View.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_HostSpace_deepcopy.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_MemorySpace.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_ScratchSpace.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Parallel.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_ExecPolicy.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_AnalyzePolicy.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/traits/Kokkos_Traits_fwd.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/traits/Kokkos_PolicyTraitAdaptor.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/traits/Kokkos_ExecutionSpaceTrait.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/traits/Kokkos_GraphKernelTrait.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_GraphImpl_fwd.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/traits/Kokkos_IndexTypeTrait.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/traits/Kokkos_IterationPatternTrait.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Rank.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Layout.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/traits/Kokkos_LaunchBoundsTrait.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/traits/Kokkos_OccupancyControlTrait.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/traits/Kokkos_ScheduleTrait.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/traits/Kokkos_WorkItemPropertyTrait.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/traits/Kokkos_WorkTagTrait.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_View.hpp \
  /usr/include/c++/8/algorithm /usr/include/c++/8/bits/stl_algo.h \
  /usr/include/c++/8/bits/algorithmfwd.h \
  /usr/include/c++/8/bits/stl_heap.h \
  /usr/include/c++/8/bits/uniform_int_dist.h \
- /home/8s2/FD-AM-new/kokkos/build/install/include/View/Hooks/Kokkos_ViewHooks.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_MinMaxClamp.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Pair.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_ViewMapping.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Extents.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_ViewTracker.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_ViewCtor.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_Atomic_View.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Atomic.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Atomics_Desul_Wrapper.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Atomics_Desul_Config.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Atomic_Ref.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Common.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Macros.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Config.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Generic.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Compare_Exchange.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Compare_Exchange_GCC.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Lock_Array.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Thread_Fence_GCC.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Adapt_GCC.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Compare_Exchange_ScopeCaller.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Fetch_Op.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Fetch_Op_GCC.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Fetch_Op_ScopeCaller.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Fetch_Op_Generic.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Lock_Based_Fetch_Op.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Lock_Based_Fetch_Op_Host.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Thread_Fence.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Thread_Fence_ScopeCaller.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Lock_Free_Fetch_Op.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/desul/atomics/Operator_Function_Objects.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_Atomic_Memory_Order.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/View/Hooks/Kokkos_ViewHooks.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_MinMaxClamp.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Pair.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_ViewMapping.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Extents.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_ViewTracker.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_ViewCtor.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_Atomic_View.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Atomic.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Atomics_Desul_Wrapper.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Atomics_Desul_Config.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Atomic_Ref.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Common.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Macros.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Config.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Generic.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Compare_Exchange.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Compare_Exchange_GCC.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Lock_Array.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Thread_Fence_GCC.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Adapt_GCC.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Compare_Exchange_ScopeCaller.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Fetch_Op.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Fetch_Op_GCC.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Fetch_Op_ScopeCaller.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Fetch_Op_Generic.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Lock_Based_Fetch_Op.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Lock_Based_Fetch_Op_Host.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Thread_Fence.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Thread_Fence_ScopeCaller.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Lock_Free_Fetch_Op.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/desul/atomics/Operator_Function_Objects.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_Atomic_Memory_Order.hpp \
  /usr/include/c++/8/atomic \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_Volatile_Load.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Atomics_Desul_Volatile_Wrapper.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_StringManipulation.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_ViewArray.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Array.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_ViewUniformType.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_Tools_Generic.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Tuners.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/KokkosExp_MDRangePolicy.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/KokkosExp_Host_IterateTile.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_Volatile_Load.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Atomics_Desul_Volatile_Wrapper.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_StringManipulation.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_ViewArray.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Array.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_ViewUniformType.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_Tools_Generic.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Tuners.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/KokkosExp_MDRangePolicy.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/KokkosExp_Host_IterateTile.hpp \
  /usr/include/c++/8/vector /usr/include/c++/8/bits/stl_vector.h \
  /usr/include/c++/8/bits/stl_bvector.h /usr/include/c++/8/bits/vector.tcc \
  /usr/include/c++/8/cassert /usr/include/assert.h \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_FunctorAnalysis.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Parallel_Reduce.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_ReductionIdentity.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_FunctorAnalysis.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Parallel_Reduce.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_ReductionIdentity.hpp \
  /usr/include/c++/8/cfloat \
  /usr/lib/gcc/x86_64-redhat-linux/8/include/float.h \
  /usr/include/c++/8/iostream /usr/include/c++/8/ostream \
@@ -257,50 +258,50 @@ CMakeFiles/heat_equation.dir/heat_equation_cajita.cpp.o: \
  /usr/include/c++/8/bits/basic_ios.tcc \
  /usr/include/c++/8/bits/ostream.tcc /usr/include/c++/8/istream \
  /usr/include/c++/8/bits/istream.tcc \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_TaskScheduler.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_TaskScheduler_fwd.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_MemoryPool.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_ConcurrentBitset.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_ClockTic.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Future.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_TaskQueue.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_TaskBase.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_LIFO.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_PointerOwnership.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_OptionalRef.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_LinkedListNode.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_TaskResult.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_TaskNode.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_VLAEmulation.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_ChaseLev.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_EBO.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_SingleTaskQueue.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_TaskQueueMemoryManager.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_TaskQueueCommon.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_TaskQueueMultiple.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_TaskQueueMultiple_impl.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_TaskPolicyData.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_TaskTeamMember.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_SimpleTaskScheduler.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_MultipleTaskQueue.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_HostSharedPtr.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_TaskScheduler.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_TaskScheduler_fwd.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_MemoryPool.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_ConcurrentBitset.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_ClockTic.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Future.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_TaskQueue.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_TaskBase.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_LIFO.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_PointerOwnership.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_OptionalRef.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_LinkedListNode.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_TaskResult.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_TaskNode.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_VLAEmulation.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_ChaseLev.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_EBO.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_SingleTaskQueue.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_TaskQueueMemoryManager.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_TaskQueueCommon.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_TaskQueueMultiple.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_TaskQueueMultiple_impl.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_TaskPolicyData.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_TaskTeamMember.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_SimpleTaskScheduler.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_MultipleTaskQueue.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_HostSharedPtr.hpp \
  /usr/include/c++/8/functional /usr/include/c++/8/bits/std_function.h \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_InitializationSettings.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/OpenMP/Kokkos_OpenMP_Instance.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_HostThreadTeam.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_HostBarrier.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_UniqueToken.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_InitializationSettings.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/OpenMP/Kokkos_OpenMP_Instance.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_HostThreadTeam.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_HostBarrier.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_UniqueToken.hpp \
  /usr/lib/gcc/x86_64-redhat-linux/8/include/omp.h \
  /usr/include/c++/8/numeric /usr/include/c++/8/bits/stl_numeric.h \
- /home/8s2/FD-AM-new/kokkos/build/install/include/OpenMP/Kokkos_OpenMP_Team.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/OpenMP/Kokkos_OpenMP_Parallel.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/OpenMP/Kokkos_OpenMP_Task.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/OpenMP/Kokkos_OpenMP_MDRangePolicy.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Half.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_AnonymousSpace.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_LogicalSpaces.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_MathematicalConstants.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_MathematicalFunctions.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/OpenMP/Kokkos_OpenMP_Team.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/OpenMP/Kokkos_OpenMP_Parallel.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/OpenMP/Kokkos_OpenMP_Task.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/OpenMP/Kokkos_OpenMP_MDRangePolicy.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Half.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_AnonymousSpace.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_LogicalSpaces.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_MathematicalConstants.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_MathematicalFunctions.hpp \
  /usr/include/c++/8/cmath /usr/include/math.h \
  /usr/include/bits/math-vector.h /usr/include/bits/libm-simd-decl-stubs.h \
  /usr/include/bits/flt-eval-method.h /usr/include/bits/fp-logb.h \
@@ -321,27 +322,27 @@ CMakeFiles/heat_equation.dir/heat_equation_cajita.cpp.o: \
  /usr/include/c++/8/tr1/poly_hermite.tcc \
  /usr/include/c++/8/tr1/poly_laguerre.tcc \
  /usr/include/c++/8/tr1/riemann_zeta.tcc \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_MathematicalSpecialFunctions.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_NumericTraits.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Complex.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_MathematicalSpecialFunctions.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_NumericTraits.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Complex.hpp \
  /usr/include/c++/8/complex /usr/include/c++/8/sstream \
  /usr/include/c++/8/bits/sstream.tcc \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Vectorization.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_hwloc.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Timer.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_CopyViews.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_TeamMDPolicy.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Crs.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_WorkGraphPolicy.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/OpenMP/Kokkos_OpenMP_WorkGraphPolicy.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_Combined_Reducer.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_AcquireUniqueTokenImpl.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/KokkosCore_Config_PostInclude.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_LocalGrid.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_GlobalGrid.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_GlobalMesh.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_Types.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_Partitioner.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Vectorization.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_hwloc.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Timer.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_CopyViews.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_TeamMDPolicy.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Crs.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_WorkGraphPolicy.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/OpenMP/Kokkos_OpenMP_WorkGraphPolicy.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_Combined_Reducer.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_AcquireUniqueTokenImpl.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/KokkosCore_Config_PostInclude.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_LocalGrid.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_GlobalGrid.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_GlobalMesh.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_Types.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_Partitioner.hpp \
  /usr/local/mpi-4.1.1-u/include/mpi.h \
  /usr/local/mpi-4.1.1-u/include/mpi_portable_platform.h \
  /usr/local/mpi-4.1.1-u/include/openmpi/ompi/mpi/cxx/mpicxx.h \
@@ -375,12 +376,12 @@ CMakeFiles/heat_equation.dir/heat_equation_cajita.cpp.o: \
  /usr/local/mpi-4.1.1-u/include/openmpi/ompi/mpi/cxx/info_inln.h \
  /usr/local/mpi-4.1.1-u/include/openmpi/ompi/mpi/cxx/win_inln.h \
  /usr/local/mpi-4.1.1-u/include/openmpi/ompi/mpi/cxx/file_inln.h \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_GlobalGrid_impl.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_LocalGrid_impl.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_MpiTraits.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_BovWriter.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_Halo.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cabana_ParameterPack.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_GlobalGrid_impl.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_LocalGrid_impl.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_MpiTraits.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_BovWriter.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_Halo.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cabana_ParameterPack.hpp \
  /usr/include/c++/8/fstream /usr/include/c++/8/bits/codecvt.h \
  /usr/include/c++/8/x86_64-redhat-linux/bits/basic_file.h \
  /usr/include/c++/8/x86_64-redhat-linux/bits/c++io.h \
@@ -391,42 +392,42 @@ CMakeFiles/heat_equation.dir/heat_equation_cajita.cpp.o: \
  /usr/include/libintl.h /usr/include/c++/8/bits/locale_facets_nonio.tcc \
  /usr/include/c++/8/bits/locale_conv.h \
  /usr/include/c++/8/bits/quoted_string.h \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_IndexConversion.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_Interpolation.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_LocalMesh.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_Splines.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_ScatterView.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_ManualPartitioner.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_Parallel.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_ParticleGridDistributor.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cabana_DeepCopy.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cabana_AoSoA.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cabana_MemberTypes.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cabana_Slice.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cabana_Types.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/impl/Cabana_Index.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/impl/Cabana_TypeTraits.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cabana_SoA.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cabana_Tuple.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/impl/Cabana_PerformanceTraits.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cabana_Distributor.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cabana_CommunicationPlan.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/CabanaCore_config.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_ParticleList.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cabana_ParticleList.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cabana_Fields.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_ReferenceStructuredSolver.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_IndexConversion.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_Interpolation.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_LocalMesh.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_Splines.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_ScatterView.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_ManualPartitioner.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_Parallel.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_ParticleGridDistributor.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cabana_DeepCopy.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cabana_AoSoA.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cabana_MemberTypes.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cabana_Slice.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cabana_Types.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/impl/Cabana_Index.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/impl/Cabana_TypeTraits.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cabana_SoA.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cabana_Tuple.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/impl/Cabana_PerformanceTraits.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cabana_Distributor.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cabana_CommunicationPlan.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/CabanaCore_config.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_ParticleList.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cabana_ParticleList.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cabana_Fields.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_ReferenceStructuredSolver.hpp \
  /usr/include/c++/8/set /usr/include/c++/8/bits/stl_set.h \
  /usr/include/c++/8/bits/stl_multiset.h \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_SparseArray.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_SparseIndexSpace.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_UnorderedMap.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Functional.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_Functional_impl.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/Kokkos_Bitset.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_Bitset_impl.hpp \
- /home/8s2/FD-AM-new/kokkos/build/install/include/impl/Kokkos_UnorderedMap_impl.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_SparseLocalGrid.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_SparseLocalGrid_impl.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_SparseDimPartitioner.hpp \
- /home/8s2/FD-AM-new/Cabana/build/install/include/Cajita_UniformDimPartitioner.hpp
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_SparseArray.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_SparseIndexSpace.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_UnorderedMap.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Functional.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_Functional_impl.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/Kokkos_Bitset.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_Bitset_impl.hpp \
+ /home/8s2/finite-difference-cajita/kokkos/build/install/include/impl/Kokkos_UnorderedMap_impl.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_SparseLocalGrid.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_SparseLocalGrid_impl.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_SparseDimPartitioner.hpp \
+ /home/8s2/finite-difference-cajita/Cabana/build/install/include/Cajita_UniformDimPartitioner.hpp

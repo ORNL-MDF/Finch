@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/8s2/FD-AM-new/heat_equation_cajita.cpp" "CMakeFiles/heat_equation.dir/heat_equation_cajita.cpp.o" "gcc" "CMakeFiles/heat_equation.dir/heat_equation_cajita.cpp.o.d"
+  "/home/8s2/finite-difference-cajita/heat_equation_cajita.cpp" "CMakeFiles/heat_equation.dir/heat_equation_cajita.cpp.o" "gcc" "CMakeFiles/heat_equation.dir/heat_equation_cajita.cpp.o.d"
   )
 
 # Targets to which this target links.

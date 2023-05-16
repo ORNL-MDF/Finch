@@ -1,1 +1,0 @@
-/home/8s2/finite-difference-cajita/build/install/bin/heat_equation

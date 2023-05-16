@@ -1,7 +1,0 @@
-/home/8s2/finite-difference-cajita/build/CMakeFiles/install/strip.dir
-/home/8s2/finite-difference-cajita/build/CMakeFiles/edit_cache.dir
-/home/8s2/finite-difference-cajita/build/CMakeFiles/heat_equation.dir
-/home/8s2/finite-difference-cajita/build/CMakeFiles/install.dir
-/home/8s2/finite-difference-cajita/build/CMakeFiles/rebuild_cache.dir
-/home/8s2/finite-difference-cajita/build/CMakeFiles/list_install_components.dir
-/home/8s2/finite-difference-cajita/build/CMakeFiles/install/local.dir

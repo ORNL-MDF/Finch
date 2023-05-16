@@ -3,16 +3,7 @@
 #include <mpi.h>
 #include <array>
 
-/*
-template <class array_t>
-void setInternalField(array_t& field, double value)
-{
-    Cajita::ArrayOp::assign( field, value, Cajita::Ghost() );
-    Cajita::ArrayOp::assign( field, value, Cajita::Own() );
-}
-*/
-
-// helper function to loop over all boundaries and set values
+// we are currently assuming each boundary is a uniform Dirichlet condition
 template <class ExecutionSpace, class grid_t, class array_t>
 void updateBoundaries(ExecutionSpace exec_space, grid_t local_grid, array_t& field)
 {
@@ -25,7 +16,7 @@ void updateBoundaries(ExecutionSpace exec_space, grid_t local_grid, array_t& fie
             plane[d] = dir;
 
             auto boundary_space = local_grid->boundaryIndexSpace(
-                Cajita::Ghost(), Cajita::Cell(), plane);
+                Cajita::Own(), Cajita::Cell(), plane);
 
             Cajita::grid_parallel_for
             (
@@ -58,7 +49,7 @@ void createGrid()
     std::array<bool, 3> periodic = { false, false, false };
 
     // Create the mesh and grid structures
-    double cell_size = 0.1;
+    double cell_size = 1;
     std::array<int, 3> global_num_cell = { 40, 40, 40 };
     std::array<double, 3> global_low_corner = { 0, 0, 0 };
     std::array<double, 3> global_high_corner = {
@@ -82,8 +73,8 @@ void createGrid()
 
     std::string name( "temperature" );
     auto T = Cajita::createArray<double, device_type>( name, layout );
-    Cajita::ArrayOp::assign( field, value, Cajita::Ghost() );
-    Cajita::ArrayOp::assign( field, value, Cajita::Own() );
+    Cajita::ArrayOp::assign( *T, 0.0, Cajita::Ghost() );
+    Cajita::ArrayOp::assign( *T, 0.0, Cajita::Own() );
 
     auto T_view = T->view();
 
@@ -98,6 +89,8 @@ void createGrid()
     int numSteps = 1000;
 
     updateBoundaries(exec_space(), local_grid, T_view);
+
+    double alphaDtByDxSqr = alpha * dt / (cell_size * cell_size);
 
     for (int step = 0; step < numSteps; ++step)
     {
@@ -116,7 +109,7 @@ void createGrid()
                       + T_view(i, j - 1, k, 0) + T_view(i, j + 1, k, 0)
                       + T_view(i, j, k - 1, 0) + T_view(i, j, k + 1, 0);
                     
-                    T_view( i, j, k, 0 ) += laplacian * alpha * dt;
+                    T_view( i, j, k, 0 ) += laplacian*alphaDtByDxSqr;
                 }
             }
         );

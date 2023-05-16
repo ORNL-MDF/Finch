@@ -4,4 +4,4 @@
 *.swp
 
 # Build files
-**/build
+build

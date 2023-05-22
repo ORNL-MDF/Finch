@@ -53,7 +53,7 @@ void createGrid()
 
 
     // Create the global mesh
-    double cell_size = 1e-5;
+    double cell_size = 20e-6;
     std::array<double, 3> global_low_corner  = { -5e-4, -5e-4, -5e-4 };
     std::array<double, 3> global_high_corner = { 50e-4, 5e-4, 0 };
     auto global_mesh = Cajita::createUniformGlobalMesh(
@@ -108,18 +108,18 @@ void createGrid()
     int numSteps = static_cast<int>(end_time / dt);
 
     // properties
-    double rho = 1000.0;
-    double specific_heat = 1000.0;
-    double kappa = 10.0;
+    double rho = 7600.0;
+    double specific_heat = 750.0;
+    double kappa = 30.0;
 
     double alpha = kappa / (rho * specific_heat);
     double alpha_dt_dx2 = alpha * dt / (cell_size * cell_size);
     double dt_rho_cp = dt / (rho * specific_heat);
 
     // gaussian heat source parameters (sigma is std dev of gaussian)
-    double eta = 0.1;
-    double power = 100.0;
-    double sigma[3] = {50e-6, 50e-6, 25e-6};
+    double eta = 0.35;
+    double power = 195.0;
+    double sigma[3] = {50e-6, 50e-6, 60e-6};
     double r[3] = {sigma[0] / sqrt(2.0), sigma[1] / sqrt(2.0), sigma[2] / sqrt(2.0)};
 
     // volumetric intensity of the heat source
@@ -127,7 +127,7 @@ void createGrid()
     
     // parameters for a moving beam in x-direction
     double beam_pos[3] = {0, 0, 0};
-    double beam_vel = 1.0;
+    double beam_vel = 0.8;
 
     // write 10 files to create a movie
     int num_output_steps = 10;

@@ -2,6 +2,7 @@
 #include <Kokkos_Core.hpp>
 #include <mpi.h>
 #include <array>
+#include <math.h>
 
 // we are currently assuming each boundary is a uniform Dirichlet condition
 template <class ExecutionSpace, class grid_t, class array_t>
@@ -53,8 +54,8 @@ void createGrid()
 
     // Create the global mesh
     double cell_size = 1e-5;
-    std::array<double, 3> global_low_corner = { -2.5e-4, -2.5e-4, -5e-4 };
-    std::array<double, 3> global_high_corner = { 2.5e-4, 2.5e-4, 0 };
+    std::array<double, 3> global_low_corner  = { -5e-4, -5e-4, -5e-4 };
+    std::array<double, 3> global_high_corner = { 5e-4, 5e-4, 0 };
     auto global_mesh = Cajita::createUniformGlobalMesh(
         global_low_corner, global_high_corner, cell_size );
 
@@ -83,8 +84,8 @@ void createGrid()
 
     std::string name( "temperature" );
     auto T = Cajita::createArray<double, device_type>( name, layout );
-    Cajita::ArrayOp::assign( *T, 0.0, Cajita::Ghost() );
-    Cajita::ArrayOp::assign( *T, 0.0, Cajita::Own() );
+    Cajita::ArrayOp::assign( *T, 300.0, Cajita::Ghost() );
+    Cajita::ArrayOp::assign( *T, 300.0, Cajita::Own() );
 
     auto T_view = T->view();
 
@@ -102,14 +103,26 @@ void createGrid()
 
 
     // Solve heat conduction from point source
-    double alpha = 1e-5;
     double dt = 1e-6;
-    int numSteps = 1000;
+    double end_time = 1e-3;
+    int numSteps = static_cast<int>(end_time / dt);
 
-    double a = alpha * dt / (cell_size * cell_size);
+    // properties
+    double rho = 1000.0;
+    double specific_heat = 1000.0;
+    double kappa = 10.0;
 
-    double r[3] = {10e-5, 10e-5, 10e-5};
+    double alpha = kappa / (rho * specific_heat);
+    double alpha_dt_dx2 = alpha * dt / (cell_size * cell_size);
+    double dt_rho_cp = dt / (rho * specific_heat);
 
+    // gaussian heat source parameters (sigma is std dev of gaussian)
+    double eta = 0.1;
+    double power = 100.0;
+    double sigma[3] = {50e-6, 50e-6, 25e-6};
+    double r[3] = {sigma[0] / sqrt(2.0), sigma[1] / sqrt(2.0), sigma[2] / sqrt(2.0)};
+
+    double I = 2.0 * eta*power / (M_PI * sqrt(M_PI) * r[0] * r[1] * r[2]);
     
     for (int step = 0; step < numSteps; ++step)
     {
@@ -133,15 +146,17 @@ void createGrid()
                   + (loc[1] * loc[1] / r[1] / r[1])
                   + (loc[2] * loc[2] / r[2] / r[2]);
 
-                double Q = exp(-f);
+                double Q = I * exp(-f) * dt_rho_cp;
 
                 double laplacian =
+                (
                   - 6.0*T0_view(i, j, k, 0)
                   + T0_view(i - 1, j, k, 0) + T0_view(i + 1, j, k, 0)
                   + T0_view(i, j - 1, k, 0) + T0_view(i, j + 1, k, 0)
-                  + T0_view(i, j, k - 1, 0) + T0_view(i, j, k + 1, 0);
+                  + T0_view(i, j, k - 1, 0) + T0_view(i, j, k + 1, 0)
+                ) * alpha_dt_dx2;
                 
-                T_view( i, j, k, 0 ) = T0_view( i, j, k, 0) + laplacian*a + Q;
+                T_view( i, j, k, 0 ) = T0_view( i, j, k, 0) + laplacian + Q;
             }
         );
         

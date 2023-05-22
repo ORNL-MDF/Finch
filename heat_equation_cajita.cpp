@@ -55,7 +55,7 @@ void createGrid()
     // Create the global mesh
     double cell_size = 1e-5;
     std::array<double, 3> global_low_corner  = { -5e-4, -5e-4, -5e-4 };
-    std::array<double, 3> global_high_corner = { 5e-4, 5e-4, 0 };
+    std::array<double, 3> global_high_corner = { 50e-4, 5e-4, 0 };
     auto global_mesh = Cajita::createUniformGlobalMesh(
         global_low_corner, global_high_corner, cell_size );
 
@@ -92,7 +92,7 @@ void createGrid()
     auto T_halo =
         createHalo( Cajita::NodeHaloPattern<3>(), halo_width, *T );
 
-    // update physical and processor boundaries
+    // update boundaries and halos
     updateBoundaries(exec_space(), local_grid, T_view);
     T_halo->gather(  exec_space(), *T );
 
@@ -104,7 +104,7 @@ void createGrid()
 
     // Solve heat conduction from point source
     double dt = 1e-6;
-    double end_time = 1e-3;
+    double end_time = 4e-3;
     int numSteps = static_cast<int>(end_time / dt);
 
     // properties
@@ -122,10 +122,22 @@ void createGrid()
     double sigma[3] = {50e-6, 50e-6, 25e-6};
     double r[3] = {sigma[0] / sqrt(2.0), sigma[1] / sqrt(2.0), sigma[2] / sqrt(2.0)};
 
-    double I = 2.0 * eta*power / (M_PI * sqrt(M_PI) * r[0] * r[1] * r[2]);
+    // volumetric intensity of the heat source
+    double I = 2.0 * eta * power / (M_PI * sqrt(M_PI) * r[0] * r[1] * r[2]);
     
+    // parameters for a moving beam in x-direction
+    double beam_pos[3] = {0, 0, 0};
+    double beam_vel = 1.0;
+
+    // write 10 files to create a movie
+    int num_output_steps = 10;
+    int output_interval = static_cast<int>( numSteps / num_output_steps );
+
     for (int step = 0; step < numSteps; ++step)
     {
+        // update beam position
+        beam_pos[0] += beam_vel * dt;
+
         // store previous value for explicit update
         Kokkos::deep_copy(T0_view, T_view);
 
@@ -140,6 +152,8 @@ void createGrid()
                 double loc[3];
                 int idx[3] = { i, j, k };
                 local_mesh.coordinates( Cajita::Cell(), idx, loc);
+            
+                loc[0] = fabs(loc[0] - beam_pos[0]);
 
                 double f =
                     (loc[0] * loc[0] / r[0] / r[0])
@@ -160,14 +174,20 @@ void createGrid()
             }
         );
         
-        // update the boundary conditions
+        // update boundaries and halos
         updateBoundaries( exec_space(), local_grid, T_view);
-
-        // Exchange halo values
         T_halo->gather(  exec_space(), *T );
+
+        
+        // Write the current temperature field
+        if (step % output_interval == 0)
+        {
+            Cajita::Experimental::BovWriter::writeTimeStep(step, step * dt, *T);
+        }
     }
 
-    Cajita::Experimental::BovWriter::writeTimeStep(0, 0, *T);
+    // Write the final temperature field
+    Cajita::Experimental::BovWriter::writeTimeStep(numSteps, numSteps * dt, *T);
 }
 
 int main( int argc, char* argv[] )

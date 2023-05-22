@@ -41,8 +41,10 @@ void createGrid()
     int comm_rank;
     MPI_Comm_rank( MPI_COMM_WORLD, &comm_rank );
 
-    using exec_space = Kokkos::DefaultHostExecutionSpace;
+    using exec_space = Kokkos::DefaultExecutionSpace;
     using device_type = exec_space::device_type;
+    using memory_space = device_type::memory_space;
+
 
     // set up block decomposition
     int comm_size;
@@ -89,20 +91,31 @@ void createGrid()
     auto T_halo =
         createHalo( Cajita::NodeHaloPattern<3>(), halo_width, *T );
 
+    // update physical and processor boundaries
+    updateBoundaries(exec_space(), local_grid, T_view);
+    T_halo->gather(  exec_space(), *T );
+
+
+    // create and array to store previous temperature for explicit udpate
+    auto T0 = Cajita::createArray<double, device_type>( name, layout );
+    auto T0_view = T0->view();
+
 
     // Solve heat conduction from point source
     double alpha = 1e-5;
     double dt = 1e-6;
-    int numSteps = 10000;
-
-    updateBoundaries(exec_space(), local_grid, T_view);
+    int numSteps = 1000;
 
     double a = alpha * dt / (cell_size * cell_size);
 
-    double r[3] = {5e-5, 5e-5, 5e-5};
+    double r[3] = {10e-5, 10e-5, 10e-5};
+
     
     for (int step = 0; step < numSteps; ++step)
     {
+        // store previous value for explicit update
+        Kokkos::deep_copy(T0_view, T_view);
+
         // Solve finite difference
         Cajita::grid_parallel_for
         (
@@ -123,12 +136,12 @@ void createGrid()
                 double Q = exp(-f);
 
                 double laplacian =
-                  - 6.0*T_view(i, j, k, 0)
-                  + T_view(i - 1, j, k, 0) + T_view(i + 1, j, k, 0)
-                  + T_view(i, j - 1, k, 0) + T_view(i, j + 1, k, 0)
-                  + T_view(i, j, k - 1, 0) + T_view(i, j, k + 1, 0);
+                  - 6.0*T0_view(i, j, k, 0)
+                  + T0_view(i - 1, j, k, 0) + T0_view(i + 1, j, k, 0)
+                  + T0_view(i, j - 1, k, 0) + T0_view(i, j + 1, k, 0)
+                  + T0_view(i, j, k - 1, 0) + T0_view(i, j, k + 1, 0);
                 
-                T_view( i, j, k, 0 ) += laplacian*a + Q;
+                T_view( i, j, k, 0 ) = T0_view( i, j, k, 0) + laplacian*a + Q;
             }
         );
         

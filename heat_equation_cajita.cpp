@@ -25,7 +25,11 @@ void updateBoundaries(ExecutionSpace exec_space, grid_t local_grid, array_t& fie
                 boundary_space,
                 KOKKOS_LAMBDA( const int i, const int j, const int k )
                 {
-                    field( i, j, k, 0 ) = 1.0;
+                    // Dirichlet boundary condition example
+                    //field( i, j, k, 0 ) = 1.0;
+
+                    // Neumann boundary condition example
+                    field( i, j, k, 0 ) = field( i - plane[0], j - plane[1], k - plane[2], 0 );
                 }
             );
         }
@@ -43,31 +47,35 @@ void createGrid()
     // set up block decomposition
     int comm_size;
     MPI_Comm_size( MPI_COMM_WORLD, &comm_size );
+
+
+    // Create the global mesh
+    double cell_size = 1e-5;
+    std::array<double, 3> global_low_corner = { -2.5e-4, -2.5e-4, -5e-4 };
+    std::array<double, 3> global_high_corner = { 2.5e-4, 2.5e-4, 0 };
+    auto global_mesh = Cajita::createUniformGlobalMesh(
+        global_low_corner, global_high_corner, cell_size );
+
+
+    // Create the global grid
     std::array<int, 3> ranks_per_dim = { comm_size, 1, 1 };
     MPI_Dims_create( comm_size, 3, ranks_per_dim.data() );
     Cajita::ManualBlockPartitioner<3> partitioner( ranks_per_dim );
     std::array<bool, 3> periodic = { false, false, false };
 
-    // Create the mesh and grid structures
-    double cell_size = 1;
-    std::array<int, 3> global_num_cell = { 40, 40, 40 };
-    std::array<double, 3> global_low_corner = { 0, 0, 0 };
-    std::array<double, 3> global_high_corner = {
-        global_low_corner[0] + cell_size * global_num_cell[0],
-        global_low_corner[1] + cell_size * global_num_cell[1],
-        global_low_corner[2] + cell_size * global_num_cell[2] };
-
-    auto global_mesh = Cajita::createUniformGlobalMesh(
-        global_low_corner, global_high_corner, global_num_cell );
-
     auto global_grid = createGlobalGrid( MPI_COMM_WORLD, global_mesh,
                                          periodic, partitioner );
 
-    // create local grid with halo region for mpi communication
-    unsigned halo_width = 1;
-    auto local_grid = Cajita::createLocalGrid(global_grid, halo_width);
 
-    // create cell array layout
+    // Create a local grid and local mesh with halo region
+    unsigned halo_width = 1;
+    auto local_grid = Cajita::createLocalGrid( global_grid, halo_width );
+    auto local_mesh = Cajita::createLocalMesh<device_type>( *local_grid );
+
+    auto owned_space = local_grid->indexSpace(
+            Cajita::Own(), Cajita::Cell(), Cajita::Local());
+
+    // Create cell array layout for finite difference calculations
     auto layout =
         createArrayLayout( global_grid, halo_width, 1, Cajita::Cell() );
 
@@ -78,20 +86,21 @@ void createGrid()
 
     auto T_view = T->view();
 
-    auto internal_space = local_grid->indexSpace(
-            Cajita::Own(), Cajita::Cell(), Cajita::Local());
-
-    auto halo =
+    auto T_halo =
         createHalo( Cajita::NodeHaloPattern<3>(), halo_width, *T );
 
-    double alpha = 0.1;
-    double dt = 0.1;
-    int numSteps = 1000;
+
+    // Solve heat conduction from point source
+    double alpha = 1e-5;
+    double dt = 1e-6;
+    int numSteps = 10000;
 
     updateBoundaries(exec_space(), local_grid, T_view);
 
-    double alphaDtByDxSqr = alpha * dt / (cell_size * cell_size);
+    double a = alpha * dt / (cell_size * cell_size);
 
+    double r[3] = {5e-5, 5e-5, 5e-5};
+    
     for (int step = 0; step < numSteps; ++step)
     {
         // Solve finite difference
@@ -99,18 +108,27 @@ void createGrid()
         (
             "local_grid_for",
             exec_space(),
-            internal_space,
+            owned_space,
             KOKKOS_LAMBDA( const int i, const int j, const int k )
             {
-                {
-                    double laplacian =
-                      - 6.0*T_view(i, j, k, 0)
-                      + T_view(i - 1, j, k, 0) + T_view(i + 1, j, k, 0)
-                      + T_view(i, j - 1, k, 0) + T_view(i, j + 1, k, 0)
-                      + T_view(i, j, k - 1, 0) + T_view(i, j, k + 1, 0);
-                    
-                    T_view( i, j, k, 0 ) += laplacian*alphaDtByDxSqr;
-                }
+                double loc[3];
+                int idx[3] = { i, j, k };
+                local_mesh.coordinates( Cajita::Cell(), idx, loc);
+
+                double f =
+                    (loc[0] * loc[0] / r[0] / r[0])
+                  + (loc[1] * loc[1] / r[1] / r[1])
+                  + (loc[2] * loc[2] / r[2] / r[2]);
+
+                double Q = exp(-f);
+
+                double laplacian =
+                  - 6.0*T_view(i, j, k, 0)
+                  + T_view(i - 1, j, k, 0) + T_view(i + 1, j, k, 0)
+                  + T_view(i, j - 1, k, 0) + T_view(i, j + 1, k, 0)
+                  + T_view(i, j, k - 1, 0) + T_view(i, j, k + 1, 0);
+                
+                T_view( i, j, k, 0 ) += laplacian*a + Q;
             }
         );
         
@@ -118,7 +136,7 @@ void createGrid()
         updateBoundaries( exec_space(), local_grid, T_view);
 
         // Exchange halo values
-        halo->gather(  exec_space(), *T );
+        T_halo->gather(  exec_space(), *T );
     }
 
     Cajita::Experimental::BovWriter::writeTimeStep(0, 0, *T);

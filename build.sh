@@ -1,6 +1,8 @@
 export KOKKOS_INSTALL_DIR=`pwd`/kokkos/build/install
 export CABANA_INSTALL_DIR=`pwd`/Cabana/build/install
 
+if [ -d build ]; then rm -Rf build; fi
+
 mkdir build
 cd build
 cmake \
@@ -9,3 +11,4 @@ cmake \
   -D CMAKE_INSTALL_PREFIX=install \
   .. ;
 make install
+

@@ -1,12 +1,14 @@
+#include "movingBeam/movingBeam.H"
 #include <Cajita.hpp>
 #include <Kokkos_Core.hpp>
-#include <mpi.h>
 #include <array>
 #include <math.h>
+#include <mpi.h>
 
 // we are currently assuming each boundary is a uniform Dirichlet condition
 template <class ExecutionSpace, class grid_t, class array_t>
-void updateBoundaries(ExecutionSpace exec_space, grid_t local_grid, array_t& field)
+void updateBoundaries( ExecutionSpace exec_space, grid_t local_grid,
+                       array_t& field )
 {
     for ( int d = 0; d < 3; d++ )
     {
@@ -17,22 +19,18 @@ void updateBoundaries(ExecutionSpace exec_space, grid_t local_grid, array_t& fie
             plane[d] = dir;
 
             auto boundary_space = local_grid->boundaryIndexSpace(
-                Cajita::Own(), Cajita::Cell(), plane);
+                Cajita::Own(), Cajita::Cell(), plane );
 
-            Cajita::grid_parallel_for
-            (
-                "boundary_grid_for",
-                exec_space,
-                boundary_space,
-                KOKKOS_LAMBDA( const int i, const int j, const int k )
-                {
+            Cajita::grid_parallel_for(
+                "boundary_grid_for", exec_space, boundary_space,
+                KOKKOS_LAMBDA( const int i, const int j, const int k ) {
                     // Dirichlet boundary condition example
-                    //field( i, j, k, 0 ) = 1.0;
+                    // field( i, j, k, 0 ) = 1.0;
 
                     // Neumann boundary condition example
-                    field( i, j, k, 0 ) = field( i - plane[0], j - plane[1], k - plane[2], 0 );
-                }
-            );
+                    field( i, j, k, 0 ) =
+                        field( i - plane[0], j - plane[1], k - plane[2], 0 );
+                } );
         }
     }
 }
@@ -46,19 +44,16 @@ void createGrid()
     using device_type = exec_space::device_type;
     using memory_space = device_type::memory_space;
 
-
     // set up block decomposition
     int comm_size;
     MPI_Comm_size( MPI_COMM_WORLD, &comm_size );
 
-
     // Create the global mesh
-    double cell_size = 20e-6;
-    std::array<double, 3> global_low_corner  = { -5e-4, -5e-4, -5e-4 };
-    std::array<double, 3> global_high_corner = { 50e-4, 5e-4, 0 };
+    double cell_size = 25e-6;
+    std::array<double, 3> global_low_corner = { -5e-4, -5e-4, -5e-4 };
+    std::array<double, 3> global_high_corner = { 5.5e-3, 5.5e-3, 0 };
     auto global_mesh = Cajita::createUniformGlobalMesh(
         global_low_corner, global_high_corner, cell_size );
-
 
     // Create the global grid
     std::array<int, 3> ranks_per_dim = { comm_size, 1, 1 };
@@ -66,17 +61,16 @@ void createGrid()
     Cajita::ManualBlockPartitioner<3> partitioner( ranks_per_dim );
     std::array<bool, 3> periodic = { false, false, false };
 
-    auto global_grid = createGlobalGrid( MPI_COMM_WORLD, global_mesh,
-                                         periodic, partitioner );
-
+    auto global_grid =
+        createGlobalGrid( MPI_COMM_WORLD, global_mesh, periodic, partitioner );
 
     // Create a local grid and local mesh with halo region
     unsigned halo_width = 1;
     auto local_grid = Cajita::createLocalGrid( global_grid, halo_width );
     auto local_mesh = Cajita::createLocalMesh<device_type>( *local_grid );
 
-    auto owned_space = local_grid->indexSpace(
-            Cajita::Own(), Cajita::Cell(), Cajita::Local());
+    auto owned_space = local_grid->indexSpace( Cajita::Own(), Cajita::Cell(),
+                                               Cajita::Local() );
 
     // Create cell array layout for finite difference calculations
     auto layout =
@@ -89,105 +83,102 @@ void createGrid()
 
     auto T_view = T->view();
 
-    auto T_halo =
-        createHalo( Cajita::NodeHaloPattern<3>(), halo_width, *T );
+    auto T_halo = createHalo( Cajita::NodeHaloPattern<3>(), halo_width, *T );
 
     // update boundaries and halos
-    updateBoundaries(exec_space(), local_grid, T_view);
-    T_halo->gather(  exec_space(), *T );
-
+    updateBoundaries( exec_space(), local_grid, T_view );
+    T_halo->gather( exec_space(), *T );
 
     // create and array to store previous temperature for explicit udpate
     auto T0 = Cajita::createArray<double, device_type>( name, layout );
     auto T0_view = T0->view();
 
-
     // Solve heat conduction from point source
     double dt = 1e-6;
     double end_time = 4e-3;
-    int numSteps = static_cast<int>(end_time / dt);
+    int numSteps = static_cast<int>( end_time / dt );
 
     // properties
     double rho = 7600.0;
     double specific_heat = 750.0;
     double kappa = 30.0;
 
-    double alpha = kappa / (rho * specific_heat);
-    double alpha_dt_dx2 = alpha * dt / (cell_size * cell_size);
-    double dt_rho_cp = dt / (rho * specific_heat);
+    double alpha = kappa / ( rho * specific_heat );
+    double alpha_dt_dx2 = alpha * dt / ( cell_size * cell_size );
+    double dt_rho_cp = dt / ( rho * specific_heat );
 
     // gaussian heat source parameters (sigma is std dev of gaussian)
     double eta = 0.35;
     double power = 195.0;
-    double sigma[3] = {50e-6, 50e-6, 60e-6};
-    double r[3] = {sigma[0] / sqrt(2.0), sigma[1] / sqrt(2.0), sigma[2] / sqrt(2.0)};
+    double sigma[3] = { 50e-6, 50e-6, 60e-6 };
+    double r[3] = { sigma[0] / sqrt( 2.0 ), sigma[1] / sqrt( 2.0 ),
+                    sigma[2] / sqrt( 2.0 ) };
 
     // volumetric intensity of the heat source
-    double I = 2.0 * eta * power / (M_PI * sqrt(M_PI) * r[0] * r[1] * r[2]);
-    
+    double I = 2.0 * eta * power / ( M_PI * sqrt( M_PI ) * r[0] * r[1] * r[2] );
+
     // parameters for a moving beam in x-direction
-    double beam_pos[3] = {0, 0, 0};
-    double beam_vel = 0.8;
+    movingBeam beam;
 
     // write 10 files to create a movie
     int num_output_steps = 10;
     int output_interval = static_cast<int>( numSteps / num_output_steps );
+    double time = 0.0;
 
-    for (int step = 0; step < numSteps; ++step)
+    for ( int step = 0; step < numSteps; ++step )
     {
+        time += dt;
         // update beam position
-        beam_pos[0] += beam_vel * dt;
+        beam.move( time );
+        std::vector<double> beam_pos = beam.position();
+        double beam_power = beam.power();
 
         // store previous value for explicit update
-        Kokkos::deep_copy(T0_view, T_view);
+        Kokkos::deep_copy( T0_view, T_view );
 
         // Solve finite difference
-        Cajita::grid_parallel_for
-        (
-            "local_grid_for",
-            exec_space(),
-            owned_space,
-            KOKKOS_LAMBDA( const int i, const int j, const int k )
-            {
+        Cajita::grid_parallel_for(
+            "local_grid_for", exec_space(), owned_space,
+            KOKKOS_LAMBDA( const int i, const int j, const int k ) {
                 double loc[3];
                 int idx[3] = { i, j, k };
-                local_mesh.coordinates( Cajita::Cell(), idx, loc);
-            
-                loc[0] = fabs(loc[0] - beam_pos[0]);
+                local_mesh.coordinates( Cajita::Cell(), idx, loc );
 
-                double f =
-                    (loc[0] * loc[0] / r[0] / r[0])
-                  + (loc[1] * loc[1] / r[1] / r[1])
-                  + (loc[2] * loc[2] / r[2] / r[2]);
+                loc[0] = fabs( loc[0] - beam_pos[0] );
+                loc[1] = fabs( loc[1] - beam_pos[1] );
+                loc[2] = fabs( loc[2] - beam_pos[2] );
 
-                double Q = I * exp(-f) * dt_rho_cp;
+                double f = ( loc[0] * loc[0] / r[0] / r[0] ) +
+                           ( loc[1] * loc[1] / r[1] / r[1] ) +
+                           ( loc[2] * loc[2] / r[2] / r[2] );
+
+                double Q = I * exp( -f ) * dt_rho_cp;
 
                 double laplacian =
-                (
-                  - 6.0*T0_view(i, j, k, 0)
-                  + T0_view(i - 1, j, k, 0) + T0_view(i + 1, j, k, 0)
-                  + T0_view(i, j - 1, k, 0) + T0_view(i, j + 1, k, 0)
-                  + T0_view(i, j, k - 1, 0) + T0_view(i, j, k + 1, 0)
-                ) * alpha_dt_dx2;
-                
-                T_view( i, j, k, 0 ) = T0_view( i, j, k, 0) + laplacian + Q;
-            }
-        );
-        
-        // update boundaries and halos
-        updateBoundaries( exec_space(), local_grid, T_view);
-        T_halo->gather(  exec_space(), *T );
+                    ( -6.0 * T0_view( i, j, k, 0 ) + T0_view( i - 1, j, k, 0 ) +
+                      T0_view( i + 1, j, k, 0 ) + T0_view( i, j - 1, k, 0 ) +
+                      T0_view( i, j + 1, k, 0 ) + T0_view( i, j, k - 1, 0 ) +
+                      T0_view( i, j, k + 1, 0 ) ) *
+                    alpha_dt_dx2;
 
-        
+                T_view( i, j, k, 0 ) = T0_view( i, j, k, 0 ) + laplacian + Q;
+            } );
+
+        // update boundaries and halos
+        updateBoundaries( exec_space(), local_grid, T_view );
+        T_halo->gather( exec_space(), *T );
+
         // Write the current temperature field
-        if (step % output_interval == 0)
+        if ( step % output_interval == 0 )
         {
-            Cajita::Experimental::BovWriter::writeTimeStep(step, step * dt, *T);
+            Cajita::Experimental::BovWriter::writeTimeStep( step, step * dt,
+                                                            *T );
         }
     }
 
     // Write the final temperature field
-    Cajita::Experimental::BovWriter::writeTimeStep(numSteps, numSteps * dt, *T);
+    Cajita::Experimental::BovWriter::writeTimeStep( numSteps, numSteps * dt,
+                                                    *T );
 }
 
 int main( int argc, char* argv[] )

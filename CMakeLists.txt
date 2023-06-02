@@ -3,8 +3,8 @@ project(FD-AM)
 
 find_package(Cabana REQUIRED COMPONENTS Cabana::Cajita)
 
+add_subdirectory(movingBeam)
 add_executable(heat_equation heat_equation_cajita.cpp)
 
-target_link_libraries(heat_equation Cabana::Cajita)
-
+target_link_libraries(heat_equation Cabana::Cajita movingBeam)
 install(TARGETS heat_equation DESTINATION ${CMAKE_INSTALL_BINDIR})

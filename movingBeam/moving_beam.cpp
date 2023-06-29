@@ -3,11 +3,8 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
-// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 const double movingBeam::eps = 1e-10;
-
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 movingBeam::movingBeam()
     : path( 1, segment() )
@@ -25,8 +22,6 @@ movingBeam::movingBeam()
 
     std::cout << "initial path index: " << index_ << std::endl;
 }
-
-// * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
 void movingBeam::readPath()
 {

@@ -1,62 +1,43 @@
-/*---------------------------------------------------------------------------*\
-Class
-    segment
-
-Description
-    Class for properties of a moving heat source
-
-    mode:      0 or 1 (1 = point source, 0 = line source)
-    position:  position of the heat source center
-    power:     power of the heat source
-    parameter: (mode = 1: time interval, mode = 0: scan velocity)
-
-SourceFiles
-    segment.C
-
-\*---------------------------------------------------------------------------*/
+/*!
+  \file moving_beam.hpp
+  \brief Class for properties of a moving heat source
+*/
 
 #ifndef segment_H
 #define segment_H
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 #include <string>
-/*---------------------------------------------------------------------------*\
-                      Class segment Declaration
-\*---------------------------------------------------------------------------*/
 
 class segment
 {
   private:
-    // Private data
-
+    //! 0 or 1 (1 = point source, 0 = line source)
     double mode_;
-
+    //! position of the heat source center
     std::vector<double> position_;
-
+    //! power of the heat source
     double power_;
-
+    //! (mode = 1: time interval, mode = 0: scan velocity)
     double parameter_;
 
     double time_;
 
   public:
-    // Constructors
-
-    //- Default construction
+    //! Default construction
     segment();
 
-    //- Construct from space-delimited string
+    //! Construct from space-delimited string
     segment( std::string );
 
-    //- Destructor
+    //! Destructor
     virtual ~segment() {}
 
     // Member Functions
 
-    //- Set time to provided value
+    //! Set time to provided value
     void setTime( double time );
 
-    //- Set position to provided value
+    //! Set position to provided value
     void setPosition( std::vector<double> position );
 
     double mode() { return mode_; }
@@ -69,14 +50,6 @@ class segment
 
     double time() { return time_; }
 };
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-#include "segment.C"
-#endif
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 #endif
 

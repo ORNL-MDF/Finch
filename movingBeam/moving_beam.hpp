@@ -1,85 +1,63 @@
-/*---------------------------------------------------------------------------*\
-
-Class
-    Foam::movingBeam
-
-Description
-    Class for moving beam heat source used in additive manufacturing simulations
-
-SourceFiles
-    movingBeam.C
-
-\*---------------------------------------------------------------------------*/
+/*!
+  \file moving_beam.hpp
+  \brief Class for moving beam heat source used in additive manufacturing
+*/
 
 #ifndef movingBeam_H
 #define movingBeam_H
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
 #include "segment.H"
-
-/*---------------------------------------------------------------------------*\
-                          Class movingBeam Declaration
-\*---------------------------------------------------------------------------*/
 
 class movingBeam
 {
   private:
-    // Private data
-
-    //- List of segments
+    //! List of segments
     std::vector<segment> path;
 
-    //- index of path
+    //! index of path
     int index_;
 
-    //- end time of path
+    //! end time of path
     double endTime_;
 
-    //- current position of moving beam
+    //! current position of moving beam
     std::vector<double> position_;
 
-    //- current power of moving beam
+    //! current power of moving beam
     double power_;
 
-    // Static Data Members
-
-    //- tolerance for scan path intervals
+    //! tolerance for scan path intervals
     static const double eps;
 
   public:
-    // Constructors
-
-    // Construct from time and dictionary
+    //! Default constructor
     movingBeam();
 
-    //- Destructor
+    //! Destructor
     virtual ~movingBeam() {}
 
-    // Member Functions
-
-    //- Read the path file
+    //! Read the path file
     void readPath();
 
-    //- Move the beam to the provided time
+    //! Move the beam to the provided time
     void move( const double time );
 
-    //- Returns the path index at the provided time
+    //! Returns the path index at the provided time
     int findIndex( const double time );
 
-    //- Returns true if the simulation time is less than path endTime
+    //! Returns true if the simulation time is less than path endTime
     bool activePath();
 
-    //- Return the current path index
+    //! Return the current path index
     int index() const { return index_; }
 
-    //- Return end time of path
+    //! Return end time of path
     int endTime() const { return endTime_; }
 
-    //- Return current position of the moving beam
+    //! Return current position of the moving beam
     std::vector<double> position() const { return position_; }
 
-    //- Return current power of the moving beam
+    //! Return current power of the moving beam
     double power() const { return power_; }
 };
 

@@ -1,9 +1,11 @@
-#include "movingBeam/movingBeam.H"
-#include <Cajita.hpp>
-#include <Kokkos_Core.hpp>
 #include <array>
 #include <math.h>
 #include <mpi.h>
+
+#include <Cajita.hpp>
+#include <Kokkos_Core.hpp>
+
+#include "movingBeam/moving_beam.hpp"
 
 // we are currently assuming each boundary is a uniform Dirichlet condition
 template <class ExecutionSpace, class grid_t, class array_t>

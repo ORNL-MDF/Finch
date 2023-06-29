@@ -1,8 +1,9 @@
-#include "movingBeam.H"
 #include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+
+#include "moving_beam.hpp"
 
 const double movingBeam::eps = 1e-10;
 

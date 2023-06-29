@@ -1,7 +1,8 @@
-#include "segment.H"
 #include <fstream>
 #include <iostream>
 #include <sstream>
+
+#include "segment.hpp"
 
 void segment::setTime( double time ) { time_ = time; }
 

@@ -6,7 +6,7 @@
 #ifndef movingBeam_H
 #define movingBeam_H
 
-#include "segment.H"
+#include "movingBeam/segment.hpp"
 
 class movingBeam
 {

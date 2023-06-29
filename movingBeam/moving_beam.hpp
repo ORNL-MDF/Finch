@@ -8,6 +8,8 @@
 
 #include "movingBeam/segment.hpp"
 
+#include <vector>
+
 class movingBeam
 {
   private:

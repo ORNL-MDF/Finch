@@ -7,6 +7,7 @@
 #define segment_H
 
 #include <string>
+#include <vector>
 
 class segment
 {

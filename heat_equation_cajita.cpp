@@ -1,6 +1,8 @@
 #include <array>
+#include <cmath>
 #include <math.h>
 #include <mpi.h>
+#include <string>
 
 #include <Cajita.hpp>
 #include <Kokkos_Core.hpp>
@@ -41,7 +43,6 @@ void createGrid()
 
     using exec_space = Kokkos::DefaultExecutionSpace;
     using device_type = exec_space::device_type;
-    using memory_space = device_type::memory_space;
 
     // set up block decomposition
     int comm_size;
@@ -130,6 +131,7 @@ void createGrid()
         // update beam position
         beam.move( time );
         std::vector<double> beam_pos = beam.position();
+        // FIXME: not used
         double beam_power = beam.power();
 
         // store previous value for explicit update

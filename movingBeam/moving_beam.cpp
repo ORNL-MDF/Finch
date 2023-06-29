@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -53,7 +54,7 @@ void movingBeam::readPath()
         path.push_back( segment( line ) );
     }
 
-    for ( int i = 1; i < path.size(); i++ )
+    for ( std::size_t i = 1; i < path.size(); i++ )
     {
         if ( path[i].mode() == 1 )
         {

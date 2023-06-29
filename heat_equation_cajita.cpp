@@ -24,10 +24,7 @@ void updateBoundaries( ExecutionSpace exec_space, grid_t local_grid,
             Cajita::grid_parallel_for(
                 "boundary_grid_for", exec_space, boundary_space,
                 KOKKOS_LAMBDA( const int i, const int j, const int k ) {
-                    // Dirichlet boundary condition example
-                    // field( i, j, k, 0 ) = 1.0;
-
-                    // Neumann boundary condition example
+                    // Apply boundary condition
                     field( i, j, k, 0 ) =
                         field( i - plane[0], j - plane[1], k - plane[2], 0 );
                 } );

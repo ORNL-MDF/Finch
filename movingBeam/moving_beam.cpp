@@ -17,9 +17,6 @@ movingBeam::movingBeam()
     // read the scan path file
     readPath();
 
-    // initlialize the path index
-    // index_ = findIndex(runTime_.value());
-
     std::cout << "initial path index: " << index_ << std::endl;
 }
 
@@ -72,8 +69,6 @@ void movingBeam::readPath()
 
             path[i].setTime( path[i - 1].time() + d_ / path[i].parameter() );
         }
-
-        // std::cout << i << "\t" << path[i].time() << "\n";
     }
 }
 
@@ -120,10 +115,6 @@ void movingBeam::move( const double time )
     {
         power_ = path[i - 1].power();
     }
-
-    // std::cout << "movingBeam position: "
-    //<< position_[0] << " " << position_[1] << " " << position_[2] << "\t" <<
-    //"power: " << power_ << std::endl;
 }
 
 int movingBeam::findIndex( const double time )
@@ -157,65 +148,3 @@ int movingBeam::findIndex( const double time )
 
     return std::min( std::max( i, 0 ), n );
 }
-
-//
-// bool movingBeam::activePath()
-//{
-//    return ((endTime_ - runTime_.value()) > eps);
-//}
-//
-//
-// void movingBeam::adjustDeltaT(scalar& dt)
-//{
-//    if (activePath())
-//    {
-//        // reset time step to initial value if the beam turns on
-//        if (power_ < small)
-//        {
-//            scalar nextTime = runTime_.userTimeToTime(runTime_.value() + dt);
-//
-//            scalar nextPower = path[findIndex(nextTime)].power();
-//
-//            if (nextPower > small)
-//            {
-//                scalar dt0 =
-//                    runTime_.userTimeToTime
-//                    (
-//                        runTime_.controlDict().lookup<scalar>("deltaT")
-//                    );
-//
-//                dt = min(dt, dt0);
-//            }
-//        }
-//
-//        // adjust time step to hit next path start time
-//        if (hitPathIntervals_)
-//        {
-//            scalar timeToNextPath = 0;
-//            label i = index_;
-//
-//            while (timeToNextPath < eps)
-//            {
-//                timeToNextPath = max(0, path[i].time() - runTime_.value());
-//
-//                i++;
-//
-//                if (i == path.size())
-//                {
-//                    break;
-//                }
-//            }
-//
-//            const scalar nSteps = timeToNextPath/dt;
-//
-//            if (nSteps < labelMax)
-//            {
-//                // allow time step to dilate 1% to hit target path time
-//                const label nStepsToNextPath = label(max(nSteps, 1) + 0.99);
-//                dt = min(timeToNextPath/nStepsToNextPath, dt);
-//            }
-//        }
-//    }
-//}
-
-// ************************************************************************* //

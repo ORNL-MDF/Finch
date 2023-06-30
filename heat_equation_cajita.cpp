@@ -10,7 +10,7 @@
 #include "grid.hpp"
 #include "movingBeam/moving_beam.hpp"
 
-void lineScan()
+void run()
 {
     using exec_space = Kokkos::DefaultExecutionSpace;
     using device_type = exec_space::device_type;
@@ -122,7 +122,7 @@ int main( int argc, char* argv[] )
     {
         Kokkos::ScopeGuard scope_guard( argc, argv );
 
-        lineScan();
+        run();
     }
     MPI_Finalize();
 

@@ -121,17 +121,17 @@ void movingBeam::move( const double time )
 
 int movingBeam::findIndex( const double time )
 {
-    int i = index_;
-
     const int n = path.size() - 1;
 
     // step back path index for safe updating
-    for ( i = i; i > 0 && path[i].time() > time; --i )
+    int i1;
+    for ( i1 = index_; i1 > 0 && path[i1].time() > time; --i1 )
     {
     }
 
     // update the path index to the provided time
-    for ( i = i; i < n && path[i].time() < time; ++i )
+    int i;
+    for ( i = i1; i < n && path[i].time() < time; ++i )
     {
     }
 

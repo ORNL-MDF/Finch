@@ -6,13 +6,12 @@
 
 #include "moving_beam.hpp"
 
-const double movingBeam::eps = 1e-10;
+const double MovingBeam::eps = 1e-10;
 
-movingBeam::movingBeam()
-    : path( 1, segment() )
+MovingBeam::MovingBeam()
+    : path( 1, BeamSegment() )
     , index_( 0 )
     , power_( 0.0 )
-
 {
     position_.resize( 3, 0.0 );
 
@@ -22,7 +21,7 @@ movingBeam::movingBeam()
     std::cout << "initial path index: " << index_ << std::endl;
 }
 
-void movingBeam::readPath()
+void MovingBeam::readPath()
 {
 
     const std::string pFile_ = "scanPath.txt";
@@ -51,7 +50,7 @@ void movingBeam::readPath()
             continue;
         }
 
-        path.push_back( segment( line ) );
+        path.push_back( BeamSegment( line ) );
     }
 
     for ( std::size_t i = 1; i < path.size(); i++ )
@@ -74,7 +73,7 @@ void movingBeam::readPath()
     }
 }
 
-void movingBeam::move( const double time )
+void MovingBeam::move( const double time )
 {
     // update the current index of the path
     index_ = findIndex( time );
@@ -119,7 +118,7 @@ void movingBeam::move( const double time )
     }
 }
 
-int movingBeam::findIndex( const double time )
+int MovingBeam::findIndex( const double time )
 {
     const int n = path.size() - 1;
 

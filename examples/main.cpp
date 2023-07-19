@@ -45,7 +45,7 @@ void run()
                     sigma[2] / sqrt( 2.0 ) };
 
     // parameters for a moving beam in x-direction
-    movingBeam beam;
+    MovingBeam beam;
 
     // write 10 files to create a movie
     int num_output_steps = 10;
@@ -128,5 +128,3 @@ int main( int argc, char* argv[] )
 
     return 0;
 }
-
-//---------------------------------------------------------------------------//

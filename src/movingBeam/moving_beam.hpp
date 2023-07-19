@@ -3,18 +3,18 @@
   \brief Class for moving beam heat source used in additive manufacturing
 */
 
-#ifndef movingBeam_H
-#define movingBeam_H
+#ifndef MovingBeam_H
+#define MovingBeam_H
 
 #include "movingBeam/segment.hpp"
 
 #include <vector>
 
-class movingBeam
+class MovingBeam
 {
   private:
     //! List of segments
-    std::vector<segment> path;
+    std::vector<BeamSegment> path;
 
     //! index of path
     int index_;
@@ -33,10 +33,10 @@ class movingBeam
 
   public:
     //! Default constructor
-    movingBeam();
+    MovingBeam();
 
     //! Destructor
-    virtual ~movingBeam() {}
+    virtual ~MovingBeam() {}
 
     //! Read the path file
     void readPath();
@@ -66,14 +66,4 @@ class movingBeam
     double power() const { return power_; }
 };
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-#include "movingBeam/movingBeam.C"
 #endif
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#endif
-
-// ************************************************************************* //

@@ -109,13 +109,13 @@ class Grid
         // Update the boundary on each face of the cube. Pass the vector of
         // index spaces to avoid launching 6 separate kernels.
         auto T_view = getTemperature();
+        auto planes = boundary_planes;
         Cajita::grid_parallel_for(
             "boundary_update", exec_space{}, boundary_spaces,
             KOKKOS_LAMBDA( const int b, const int i, const int j,
                            const int k ) {
-                T_view( i, j, k, 0 ) = T_view( i - boundary_planes[b][0],
-                                               j - boundary_planes[b][1],
-                                               k - boundary_planes[b][2], 0 );
+                T_view( i, j, k, 0 ) = T_view(
+                    i - planes[b][0], j - planes[b][1], k - planes[b][2], 0 );
             } );
     }
 

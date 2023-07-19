@@ -59,6 +59,9 @@ class movingBeam
     //! Return current position of the moving beam
     std::vector<double> position() const { return position_; }
 
+    //! Return current position component of the moving beam
+    double position( const int dir ) const { return position_[dir]; }
+
     //! Return current power of the moving beam
     double power() const { return power_; }
 };

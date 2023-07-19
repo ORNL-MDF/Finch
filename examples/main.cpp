@@ -57,9 +57,10 @@ void run()
         time += dt;
         // update beam position
         beam.move( time );
-        std::vector<double> beam_pos = beam.position();
-        // FIXME: not used
         double beam_power = beam.power();
+        double beam_pos_x = beam.position( 0 );
+        double beam_pos_y = beam.position( 1 );
+        double beam_pos_z = beam.position( 2 );
 
         // Get temperature views;
         auto T = grid.getTemperature();
@@ -77,9 +78,9 @@ void run()
                 int idx[3] = { i, j, k };
                 local_mesh.coordinates( Cajita::Cell(), idx, loc );
 
-                loc[0] = fabs( loc[0] - beam_pos[0] );
-                loc[1] = fabs( loc[1] - beam_pos[1] );
-                loc[2] = fabs( loc[2] - beam_pos[2] );
+                loc[0] = fabs( loc[0] - beam_pos_x );
+                loc[1] = fabs( loc[1] - beam_pos_y );
+                loc[2] = fabs( loc[2] - beam_pos_z );
 
                 double f = ( loc[0] * loc[0] / r[0] / r[0] ) +
                            ( loc[1] * loc[1] / r[1] / r[1] ) +

@@ -40,13 +40,9 @@ void run()
 
     // gaussian heat source parameters (sigma is std dev of gaussian)
     double eta = 0.35;
-    double power = 195.0;
     double sigma[3] = { 50e-6, 50e-6, 60e-6 };
     double r[3] = { sigma[0] / sqrt( 2.0 ), sigma[1] / sqrt( 2.0 ),
                     sigma[2] / sqrt( 2.0 ) };
-
-    // volumetric intensity of the heat source
-    double I = 2.0 * eta * power / ( M_PI * sqrt( M_PI ) * r[0] * r[1] * r[2] );
 
     // parameters for a moving beam in x-direction
     movingBeam beam;
@@ -89,6 +85,9 @@ void run()
                            ( loc[1] * loc[1] / r[1] / r[1] ) +
                            ( loc[2] * loc[2] / r[2] / r[2] );
 
+                // volumetric intensity of the heat source
+                double I = 2.0 * eta * beam_power /
+                           ( M_PI * sqrt( M_PI ) * r[0] * r[1] * r[2] );
                 double Q = I * exp( -f ) * dt_rho_cp;
 
                 double laplacian =

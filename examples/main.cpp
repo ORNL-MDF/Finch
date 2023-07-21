@@ -74,17 +74,17 @@ void run()
         Cajita::grid_parallel_for(
             "local_grid_for", exec_space(), grid.getIndexSpace(),
             KOKKOS_LAMBDA( const int i, const int j, const int k ) {
-                double loc[3];
+                double cell_loc[3], cell_dist_to_beam[3];
                 int idx[3] = { i, j, k };
-                local_mesh.coordinates( Cajita::Cell(), idx, loc );
+                local_mesh.coordinates( Cajita::Cell(), idx, cell_loc );
 
-                loc[0] = fabs( loc[0] - beam_pos_x );
-                loc[1] = fabs( loc[1] - beam_pos_y );
-                loc[2] = fabs( loc[2] - beam_pos_z );
+                cell_dist_to_beam[0] = fabs( cell_loc[0] - beam_pos_x );
+                cell_dist_to_beam[1] = fabs( cell_loc[1] - beam_pos_y );
+                cell_dist_to_beam[2] = fabs( cell_loc[2] - beam_pos_z );
 
-                double f = ( loc[0] * loc[0] / r[0] / r[0] ) +
-                           ( loc[1] * loc[1] / r[1] / r[1] ) +
-                           ( loc[2] * loc[2] / r[2] / r[2] );
+                double f = ( cell_dist_to_beam[0] * cell_dist_to_beam[0] / r[0] / r[0] ) +
+                           ( cell_dist_to_beam[1] * cell_dist_to_beam[1] / r[1] / r[1] ) +
+                           ( cell_dist_to_beam[2] * cell_dist_to_beam[2] / r[2] / r[2] );
 
                 // volumetric intensity of the heat source
                 double I = 2.0 * eta * beam_power /

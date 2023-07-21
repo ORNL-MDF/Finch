@@ -1,3 +1,6 @@
+#ifndef Simulation_H
+#define Simulation_H
+
 #include <iostream>
 #include <fstream>
 #include <array>
@@ -13,6 +16,7 @@ struct Time
     double start_time;
     double end_time;
     double time_step;
+    double time;
     int num_output_steps;
     int output_interval;
 };
@@ -40,15 +44,26 @@ struct Properties
     double thermal_conductivity;
     double thermal_diffusivity;
     double latent_heat;
+    double liquidus;
+};
+
+struct Sampling
+{
+    std::string type;
+    std::string format;
+    bool enabled;
 };
 
 class Simulation
 {
 public:
+    //SolidificationOutput solidificationOutput;
     Time time;
     Space space;
     Source source;
     Properties properties;
+    Sampling sampling;
+
     int rank;
     int size;
 
@@ -68,6 +83,9 @@ public:
             ( time.Co * space.cell_size * space.cell_size )
           / ( properties.thermal_diffusivity );
 
+
+        time.time = time.start_time;
+
         write();
 
         Info << "Calculated time step: " << time.time_step << std::endl;
@@ -75,6 +93,10 @@ public:
 
     void write()
     {
+        Info << "  Co: " << time.Co << std::endl;
+        Info << "  Start Time: " << time.start_time << std::endl;
+        Info << "  End Time: " << time.end_time << std::endl;
+        Info << "  Num Output Steps: " << time.num_output_steps << std::endl;
         Info << "Simulation will be performed using parameters: " << std::endl;
 
         // Print time
@@ -103,6 +125,7 @@ public:
         Info << "  Specific Heat: " << properties.specific_heat << std::endl;
         Info << "  Thermal Conductivity: " << properties.thermal_conductivity << std::endl;
         Info << "  Latent Heat: " << properties.latent_heat << std::endl;
+        Info << "  Liquidus: " << properties.liquidus << std::endl;
 
         // Print source
         Info << "Source:" << std::endl;
@@ -112,6 +135,18 @@ public:
         Info << "    Y: " << source.two_sigma[1] << std::endl;
         Info << "    Z: " << source.two_sigma[2] << std::endl;
         Info << "  scan path file: " << source.scan_path_file << std::endl;
+
+        // Print solidification output options
+        Info << "Sampling:" << std::endl;
+        if (sampling.enabled)
+        {
+            Info << "  type: " << sampling.type << std::endl;
+            Info << "  format:" << sampling.format << std::endl;
+        }
+        else
+        {
+            Info<< "Skipping optional sampling." << std::endl;
+        }
     }
 
 private:
@@ -167,6 +202,8 @@ private:
                 db["properties"]["thermal_conductivity"].as<double>();
             properties.latent_heat =
                 db["properties"]["latent_heat"].as<double>();
+            properties.liquidus =
+                db["properties"]["liquidus"].as<double>();
 
             // Read heat source components
             source.absorption =
@@ -180,6 +217,33 @@ private:
 
             source.scan_path_file =
                 db["source"]["scan_path_file"].as<std::string>();
+
+            // Read sampling components
+            sampling.enabled = false;
+            if (db["sampling"])
+            {
+                const std::string samplingType =
+                    db["sampling"]["type"].as<std::string>();
+
+                if (samplingType == "solidification_data")
+                {
+                    sampling.type = samplingType;
+                    sampling.enabled = true;
+                }
+
+                const std::string samplingFormat =
+                    db["sampling"]["format"].as<std::string>();
+
+                if (samplingFormat == "exaca")
+                {
+                    sampling.format = samplingFormat;
+                }
+                else
+                {
+                    sampling.format = "default";
+                }
+            }
         }
     }
 };
+#endif

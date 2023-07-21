@@ -10,6 +10,7 @@
 #include "grid.hpp"
 #include "movingBeam/moving_beam.hpp"
 #include "simulation.hpp"
+#include "solidificationData.hpp"
 
 void run( int argc, char* argv[] )
 {
@@ -49,7 +50,7 @@ void run( int argc, char* argv[] )
               / ( M_PI * sqrt( M_PI ) * r[0] * r[1] * r[2] );
 
     // time stepping
-    double time = db.time.start_time;
+    double& time = db.time.time;
 
     int numSteps = static_cast<int>(
                         ( db.time.end_time - db.time.start_time )
@@ -57,6 +58,9 @@ void run( int argc, char* argv[] )
 
     int output_interval = static_cast<int>(
                         ( numSteps / db.time.num_output_steps ));
+    
+    // struct for holding solidification data
+    SolidificationData<memory_space> solidification_data( grid, db );
 
     // update the temperature field
     for ( int step = 0; step < numSteps; ++step )
@@ -109,6 +113,7 @@ void run( int argc, char* argv[] )
                 double q_dot = I0 * beam_power * exp( -f ) * dt_by_rho_cp;
 
                 T( i, j, k, 0 ) = T0( i, j, k, 0 ) + laplacian + q_dot;
+
             } );
 
         // update boundaries
@@ -116,6 +121,8 @@ void run( int argc, char* argv[] )
 
         // communicate halos
         grid.gather();
+
+        solidification_data.update();
 
         // Write the current temperature field
         if ( output_interval && (step % output_interval == 0 ) )
@@ -126,6 +133,9 @@ void run( int argc, char* argv[] )
 
     // Write the final temperature field
     grid.output( numSteps, numSteps * db.time.time_step );
+
+    // Write the temperature data used by ExaCA/other post-processing
+    solidification_data.write();
 }
 
 int main( int argc, char* argv[] )

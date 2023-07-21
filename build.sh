@@ -1,5 +1,5 @@
 # Change this path to your local Kokkos location
-export KOKKOS_DIR=../kokkos
+export KOKKOS_DIR=$HOME/kokkos
 pushd $KOKKOS_DIR
 mkdir build
 pushd build
@@ -12,7 +12,7 @@ popd
 popd
 
 # Change this path to your local Cabana location
-export CABANA_DIR=../Cabana
+export CABANA_DIR=$HOME/Cabana
 pushd $CABANA_DIR
 mkdir build
 pushd build
@@ -28,7 +28,7 @@ popd
 
 
 # Change this path to your local yaml location
-export YAML_DIR=../yaml-cpp
+export YAML_DIR=$HOME/yaml-cpp
 pushd $YAML_DIR
 mkdir build
 pushd build

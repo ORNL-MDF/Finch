@@ -1,3 +1,6 @@
+#ifndef Grid_H
+#define Grid_H
+
 #include <Cajita.hpp>
 #include <Kokkos_Core.hpp>
 
@@ -12,7 +15,9 @@ class Grid
     using entity_type = Cajita::Cell;
     using mesh_type = Cajita::UniformMesh<double>;
     using array_type =
-        Cajita::Array<double, entity_type, mesh_type, memory_space>;
+    Cajita::Array<double, entity_type, mesh_type, memory_space>;
+    //! MPI rank and number of ranks
+    int comm_rank, comm_size;
 
     Grid( MPI_Comm comm, const double cell_size,
           std::array<double, 3> global_low_corner,
@@ -23,8 +28,8 @@ class Grid
             global_low_corner, global_high_corner, cell_size );
 
         // set up block decomposition
-        int comm_size;
         MPI_Comm_size( comm, &comm_size );
+        MPI_Comm_rank( comm, &comm_rank );
 
         // Create the global grid
         std::array<int, 3> ranks_per_dim = { comm_size, 1, 1 };
@@ -32,8 +37,8 @@ class Grid
         Cajita::ManualBlockPartitioner<3> partitioner( ranks_per_dim );
         std::array<bool, 3> periodic = { false, false, false };
 
-        auto global_grid = createGlobalGrid( MPI_COMM_WORLD, global_mesh,
-                                             periodic, partitioner );
+        auto global_grid =
+            createGlobalGrid( comm, global_mesh, periodic, partitioner );
 
         // Create a local grid and local mesh with halo region
         local_grid = Cajita::createLocalGrid( global_grid, halo_width );
@@ -67,7 +72,7 @@ class Grid
         return Cajita::createLocalMesh<memory_space>( *local_grid );
     }
 
-    auto getLocalGrid() { return *local_grid; }
+    auto getLocalGrid() { return local_grid; }
 
     auto getIndexSpace()
     {
@@ -113,8 +118,8 @@ class Grid
         auto planes = boundary_planes;
         Cajita::grid_parallel_for(
             "boundary_update", exec_space{}, boundary_spaces,
-            KOKKOS_LAMBDA( const int b, const int i, const int j,
-                           const int k ) {
+            KOKKOS_LAMBDA( const int b, const int i, const int j, const int k )
+            {
                 T_view( i, j, k, 0 ) = T_view(
                     i - planes[b][0], j - planes[b][1], k - planes[b][2], 0 );
             } );
@@ -140,3 +145,4 @@ class Grid
     // Boundary details.
     Kokkos::Array<Kokkos::Array<int, 3>, 6> boundary_planes;
 };
+#endif

@@ -1,14 +1,35 @@
-export KOKKOS_INSTALL_DIR=`pwd`/kokkos/build/install
-export CABANA_INSTALL_DIR=`pwd`/Cabana/build/install
+# Change this path to your local Kokkos location
+export KOKKOS_DIR=../kokkos
+pushd $KOKKOS_DIR
+mkdir build
+pushd build
+cmake \
+    -D CMAKE_INSTALL_PREFIX=install \
+    -D CMAKE_BUILD_TYPE="Release" \
+    ..
+make -j install
+popd
+popd
 
-if [ -d build ]; then rm -Rf build; fi
+# Change this path to your local Kokkos location
+export CABANA_DIR=../Cabana
+pushd $CABANA_DIR
+mkdir build
+pushd build
+cmake \
+    -D CMAKE_PREFIX_PATH=$KOKKOS_DIR/build/install \
+    -D CMAKE_INSTALL_PREFIX=install \
+    -D CMAKE_BUILD_TYPE="Release" \
+    .. ;
+make -j install
+popd
+popd
 
 mkdir build
-cd build
+pushd build
 cmake \
   -D CMAKE_BUILD_TYPE="Release" \
-  -D CMAKE_PREFIX_PATH="$KOKKOS_INSTALL_DIR;$CABANA_INSTALL_DIR" \
+  -D CMAKE_PREFIX_PATH=$CABANA_DIR/build/install \
   -D CMAKE_INSTALL_PREFIX=install \
   .. ;
-make install
-
+make -j install

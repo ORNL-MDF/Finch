@@ -11,7 +11,7 @@ make -j install
 popd
 popd
 
-# Change this path to your local Kokkos location
+# Change this path to your local Cabana location
 export CABANA_DIR=../Cabana
 pushd $CABANA_DIR
 mkdir build

@@ -16,7 +16,7 @@ void run()
     using device_type = exec_space::device_type;
 
     // Create the global mesh
-    double cell_size = 25e-6;
+    double cell_size = 20e-6;
     std::array<double, 3> global_low_corner = { -5e-4, -5e-4, -5e-4 };
     std::array<double, 3> global_high_corner = { 5.5e-3, 5.5e-3, 0 };
     double init_temp = 300.0;
@@ -24,19 +24,20 @@ void run()
     Grid<device_type> grid( MPI_COMM_WORLD, cell_size, global_low_corner,
                             global_high_corner, init_temp );
 
-    // Solve heat conduction from point source
-    double dt = 1e-6;
-    double end_time = 4e-3;
-    int numSteps = static_cast<int>( end_time / dt );
-
     // properties
-    double rho = 7600.0;
+    double rho = 7500.0;
     double specific_heat = 750.0;
-    double kappa = 30.0;
-
+    double kappa = 25.0;
     double alpha = kappa / ( rho * specific_heat );
+
+    // Solve heat conduction from point source
+    double Co = 0.125;       // thermal courant number for explicit stability
+    double dt = Co * cell_size * cell_size / alpha;
     double alpha_dt_dx2 = alpha * dt / ( cell_size * cell_size );
     double dt_rho_cp = dt / ( rho * specific_heat );
+
+    double end_time = 4e-3;
+    int numSteps = static_cast<int>( end_time / dt );
 
     // gaussian heat source parameters (sigma is std dev of gaussian)
     double eta = 0.35;
@@ -55,6 +56,7 @@ void run()
     for ( int step = 0; step < numSteps; ++step )
     {
         time += dt;
+
         // update beam position
         beam.move( time );
         double beam_power = beam.power();

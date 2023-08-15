@@ -1,5 +1,5 @@
-export KOKKOS_INSTALL_DIR=`pwd`/kokkos/build/install
-export CABANA_INSTALL_DIR=`pwd`/Cabana/build/install
+export KOKKOS_INSTALL_DIR=/home/8s2/finite-difference-cajita/kokkos/build/install
+export CABANA_INSTALL_DIR=/home/8s2/finite-difference-cajita/Cabana/build/install
 
 if [ -d build ]; then rm -Rf build; fi
 

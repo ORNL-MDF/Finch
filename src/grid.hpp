@@ -51,7 +51,7 @@ class Grid
         T0 = Cajita::createArray<double, device_type>( name, layout );
 
         // Create halo
-        halo = createHalo( Cajita::NodeHaloPattern<3>(), halo_width, *T );
+        halo = createHalo( Cajita::FaceHaloPattern<3>(), halo_width, *T );
 
         // Create boundaries
         createBoundaries();
@@ -97,7 +97,7 @@ class Grid
                 // Get the boundary indices for this plane (each one is a
                 // separate, contiguous index space).
                 boundary_spaces[count] = local_grid->boundaryIndexSpace(
-                    Cajita::Own(), entity_type(), boundary_planes[count][0],
+                    Cajita::Ghost(), entity_type(), boundary_planes[count][0],
                     boundary_planes[count][1], boundary_planes[count][2] );
                 count++;
             }

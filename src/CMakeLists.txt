@@ -4,8 +4,11 @@ file(GLOB SOURCES *.cpp movingBeam/*.cpp)
 
 install(FILES ${HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
+#include_directories(${YAML_CPP_INCLUDE_DIR})
+
 add_library(CabanaFD ${SOURCES})
 target_link_libraries(CabanaFD Cabana::Cajita)
+
 target_include_directories(CabanaFD PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
                            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
                            $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)

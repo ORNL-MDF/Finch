@@ -28,7 +28,7 @@ popd
 
 
 # Change this path to your local yaml location
-export YAML_DIR=/home/8s2/yaml-cpp
+export YAML_DIR=../yaml-cpp
 pushd $YAML_DIR
 mkdir build
 pushd build

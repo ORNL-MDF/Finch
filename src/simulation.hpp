@@ -2,7 +2,6 @@
 #include <fstream>
 #include <array>
 #include <unistd.h>
-
 #include "yaml-cpp/yaml.h"
 
 struct Time

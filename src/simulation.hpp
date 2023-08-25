@@ -134,14 +134,6 @@ private:
             }
         }
 
-        if (!filename)
-        {
-            std::cerr << "Input file required." << std::endl
-                      << "Usage: " << argv[0]
-                      << " -i <input_yaml_file>" << std::endl;
-            return;
-        }
-
         // parse input file
         {
             YAML::Node db = YAML::LoadFile(filename);

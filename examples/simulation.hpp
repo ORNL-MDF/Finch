@@ -133,7 +133,7 @@ private:
             return;
         }
 
-        try 
+        // parse input file
         {
             YAML::Node db = YAML::LoadFile(filename);
 
@@ -176,10 +176,6 @@ private:
             source.two_sigma[0] = fabs( source.two_sigma[0] );
             source.two_sigma[1] = fabs( source.two_sigma[1] );
             source.two_sigma[2] = fabs( source.two_sigma[2] );
-        }
-        catch (const YAML::Exception& e)
-        {
-            std::cerr << "Error while reading YAML: " << e.what() << std::endl;
         }
     }
 };

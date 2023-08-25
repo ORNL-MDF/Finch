@@ -4,6 +4,9 @@
 #include <unistd.h>
 #include "yaml-cpp/yaml.h"
 
+// Info macro for writing on master
+#define Info if (rank == 0) std::cout
+
 struct Time
 {
     double Co;
@@ -27,6 +30,7 @@ struct Source
     double absorption;
     std::array<double, 3> two_sigma;
     std::array<double, 3> r;
+    std::string scan_path_file;
 };
 
 struct Properties
@@ -45,10 +49,15 @@ public:
     Space space;
     Source source;
     Properties properties;
+    int rank;
+    int size;
 
     // constructor
-    Simulation(int argc, char* argv[])
+    Simulation(MPI_Comm comm, int argc, char* argv[])
     {
+        MPI_Comm_rank( comm, &rank );
+        MPI_Comm_size( comm, &size );
+
         readInput(argc, argv);
         
         properties.thermal_diffusivity = 
@@ -61,47 +70,48 @@ public:
 
         write();
 
-        std::cout << "Calculated time step: " << time.time_step << std::endl;
+        Info << "Calculated time step: " << time.time_step << std::endl;
     }
 
     void write()
     {
-        std::cout << "Simulation will be performed using parameters: " << std::endl;
+        Info << "Simulation will be performed using parameters: " << std::endl;
 
         // Print time
-        std::cout << "Time:" << std::endl;
-        std::cout << "  Co: " << time.Co << std::endl;
-        std::cout << "  Start Time: " << time.start_time << std::endl;
-        std::cout << "  End Time: " << time.end_time << std::endl;
-        std::cout << "  Num Output Steps: " << time.num_output_steps << std::endl;
+        Info << "Time:" << std::endl;
+        Info << "  Co: " << time.Co << std::endl;
+        Info << "  Start Time: " << time.start_time << std::endl;
+        Info << "  End Time: " << time.end_time << std::endl;
+        Info << "  Num Output Steps: " << time.num_output_steps << std::endl;
 
         // Print space
-        std::cout << "Space:" << std::endl;
-        std::cout << "  Initial temperature: " << space.initial_temperature << std::endl;
-        std::cout << "  Cell Size: " << space.cell_size << std::endl;
-        std::cout << "  Global Low Corner:" << std::endl;
-        std::cout << "    X: " << space.global_low_corner[0] << std::endl;
-        std::cout << "    Y: " << space.global_low_corner[1] << std::endl;
-        std::cout << "    Z: " << space.global_low_corner[2] << std::endl;
-        std::cout << "  Global High Corner:" << std::endl;
-        std::cout << "    X: " << space.global_high_corner[0] << std::endl;
-        std::cout << "    Y: " << space.global_high_corner[1] << std::endl;
-        std::cout << "    Z: " << space.global_high_corner[2] << std::endl;
+        Info << "Space:" << std::endl;
+        Info << "  Initial temperature: " << space.initial_temperature << std::endl;
+        Info << "  Cell Size: " << space.cell_size << std::endl;
+        Info << "  Global Low Corner:" << std::endl;
+        Info << "    X: " << space.global_low_corner[0] << std::endl;
+        Info << "    Y: " << space.global_low_corner[1] << std::endl;
+        Info << "    Z: " << space.global_low_corner[2] << std::endl;
+        Info << "  Global High Corner:" << std::endl;
+        Info << "    X: " << space.global_high_corner[0] << std::endl;
+        Info << "    Y: " << space.global_high_corner[1] << std::endl;
+        Info << "    Z: " << space.global_high_corner[2] << std::endl;
 
         // Print properties
-        std::cout << "Properties:" << std::endl;
-        std::cout << "  Density: " << properties.density << std::endl;
-        std::cout << "  Specific Heat: " << properties.specific_heat << std::endl;
-        std::cout << "  Thermal Conductivity: " << properties.thermal_conductivity << std::endl;
-        std::cout << "  Latent Heat: " << properties.latent_heat << std::endl;
+        Info << "Properties:" << std::endl;
+        Info << "  Density: " << properties.density << std::endl;
+        Info << "  Specific Heat: " << properties.specific_heat << std::endl;
+        Info << "  Thermal Conductivity: " << properties.thermal_conductivity << std::endl;
+        Info << "  Latent Heat: " << properties.latent_heat << std::endl;
 
         // Print source
-        std::cout << "Source:" << std::endl;
-        std::cout << "  Absorption: " << source.absorption << std::endl;
-        std::cout << "  two-sigma:" << std::endl;
-        std::cout << "    X: " << source.two_sigma[0] << std::endl;
-        std::cout << "    Y: " << source.two_sigma[1] << std::endl;
-        std::cout << "    Z: " << source.two_sigma[2] << std::endl;
+        Info << "Source:" << std::endl;
+        Info << "  Absorption: " << source.absorption << std::endl;
+        Info << "  two-sigma:" << std::endl;
+        Info << "    X: " << source.two_sigma[0] << std::endl;
+        Info << "    Y: " << source.two_sigma[1] << std::endl;
+        Info << "    Z: " << source.two_sigma[2] << std::endl;
+        Info << "  scan path file: " << source.scan_path_file << std::endl;
     }
 
 private:
@@ -175,6 +185,9 @@ private:
             source.two_sigma[0] = fabs( source.two_sigma[0] );
             source.two_sigma[1] = fabs( source.two_sigma[1] );
             source.two_sigma[2] = fabs( source.two_sigma[2] );
+
+            source.scan_path_file =
+                db["source"]["scan_path_file"].as<std::string>();
         }
     }
 };

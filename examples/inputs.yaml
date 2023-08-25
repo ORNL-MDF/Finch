@@ -19,3 +19,4 @@ properties:
 source:
   absorption: 0.3
   two_sigma: [60e-6, 60e-6, 60e-6]
+  scan_path_file: scanPath.txt

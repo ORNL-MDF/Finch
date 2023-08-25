@@ -11,13 +11,16 @@
 #include "movingBeam/moving_beam.hpp"
 #include "simulation.hpp"
 
-void run(Simulation& db)
+void run( int argc, char* argv[] )
 {
     using exec_space = Kokkos::DefaultExecutionSpace;
     using device_type = exec_space::device_type;
 
+    // initialize the simulation
+    Simulation db( MPI_COMM_WORLD, argc, argv );
+
     // initialize a moving beam
-    MovingBeam beam;
+    MovingBeam beam(db.source.scan_path_file);
 
     // create the global mesh
     Grid<device_type> grid( MPI_COMM_WORLD,
@@ -131,9 +134,7 @@ int main( int argc, char* argv[] )
     {
         Kokkos::ScopeGuard scope_guard( argc, argv );
 
-        Simulation simulation( argc, argv );
-
-        run(simulation);
+        run( argc, argv );
     }
     MPI_Finalize();
 

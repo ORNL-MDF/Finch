@@ -8,7 +8,7 @@
 
 const double MovingBeam::eps = 1e-10;
 
-MovingBeam::MovingBeam()
+MovingBeam::MovingBeam(const std::string scan_path_file)
     : path( 1, BeamSegment() )
     , index_( 0 )
     , power_( 0.0 )
@@ -16,15 +16,14 @@ MovingBeam::MovingBeam()
     position_.resize( 3, 0.0 );
 
     // read the scan path file
+    pFile_ = scan_path_file;
     readPath();
-
-    std::cout << "initial path index: " << index_ << std::endl;
 }
 
 void MovingBeam::readPath()
 {
 
-    const std::string pFile_ = "scanPath.txt";
+    //const std::string pFile_ = "scanPath.txt";
 
     std::ifstream is( pFile_ );
 
@@ -32,10 +31,6 @@ void MovingBeam::readPath()
     {
         std::string error = "Cannot find file " + pFile_;
         throw std::runtime_error( error );
-    }
-    else
-    {
-        std::cout << "Reading scan path from: " << pFile_ << std::endl;
     }
 
     std::string line;

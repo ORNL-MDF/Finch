@@ -16,6 +16,9 @@ class MovingBeam
     //! List of segments
     std::vector<BeamSegment> path;
 
+    //! Scan path file name
+    std::string pFile_;
+
     //! index of path
     int index_;
 
@@ -33,7 +36,7 @@ class MovingBeam
 
   public:
     //! Default constructor
-    MovingBeam();
+    MovingBeam(const std::string scan_path_file);
 
     //! Destructor
     virtual ~MovingBeam() {}

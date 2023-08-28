@@ -7,7 +7,8 @@ Finite difference heat transfer using Cabana for additive manufacturing
 |Dependency | Version  | Required | Details|
 |---------- | -------  |--------  |------- |
 |CMake      | 3.20+    | Yes      | Build system
-|[Cabana](https://github.com/ECP-copa/Cabana)     | master   | Yes      | Performance portable particle algorithms
+|[Cabana](https://github.com/ECP-copa/Cabana)     | master   | Yes      | Performance portable
+|[yaml-cpp](https://github.com/jbeder/yaml-cpp)     | master   | Yes      | File IO
 
 ## License
 

@@ -1,17 +1,18 @@
 #include <Cajita.hpp>
 #include <Kokkos_Core.hpp>
 
-template <typename DeviceType>
+template <typename MemorySpace>
 class Grid
 {
   public:
-    using device_type = DeviceType;
-    using memory_space = typename DeviceType::memory_space;
-    using exec_space = typename DeviceType::execution_space;
+    // Kokkos memory space.
+    using memory_space = MemorySpace;
+    // Default Kokkos execution space for this memory space.
+    using exec_space = typename MemorySpace::execution_space;
     using entity_type = Cajita::Cell;
     using mesh_type = Cajita::UniformMesh<double>;
     using array_type =
-        Cajita::Array<double, entity_type, mesh_type, device_type>;
+        Cajita::Array<double, entity_type, mesh_type, memory_space>;
 
     Grid( MPI_Comm comm, const double cell_size,
           std::array<double, 3> global_low_corner,
@@ -42,13 +43,13 @@ class Grid
             createArrayLayout( global_grid, halo_width, 1, entity_type() );
 
         std::string name( "temperature" );
-        T = Cajita::createArray<double, device_type>( name, layout );
+        T = Cajita::createArray<double, memory_space>( name, layout );
         Cajita::ArrayOp::assign( *T, initial_temperature, Cajita::Ghost() );
         Cajita::ArrayOp::assign( *T, initial_temperature, Cajita::Own() );
 
         // create an array to store previous temperature for explicit udpate
         // Note: this is an entirely separate array on purpose (no shallow copy)
-        T0 = Cajita::createArray<double, device_type>( name, layout );
+        T0 = Cajita::createArray<double, memory_space>( name, layout );
 
         // Create halo
         halo = createHalo( Cajita::FaceHaloPattern<3>(), halo_width, *T );
@@ -63,7 +64,7 @@ class Grid
 
     auto getLocalMesh()
     {
-        return Cajita::createLocalMesh<device_type>( *local_grid );
+        return Cajita::createLocalMesh<memory_space>( *local_grid );
     }
 
     auto getLocalGrid() { return *local_grid; }
@@ -112,8 +113,8 @@ class Grid
         auto planes = boundary_planes;
         Cajita::grid_parallel_for(
             "boundary_update", exec_space{}, boundary_spaces,
-            KOKKOS_LAMBDA( const int b, const int i, const int j, const int k )
-            {
+            KOKKOS_LAMBDA( const int b, const int i, const int j,
+                           const int k ) {
                 T_view( i, j, k, 0 ) = T_view(
                     i - planes[b][0], j - planes[b][1], k - planes[b][2], 0 );
             } );

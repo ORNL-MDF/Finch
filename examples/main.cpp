@@ -14,7 +14,7 @@
 void run( int argc, char* argv[] )
 {
     using exec_space = Kokkos::DefaultExecutionSpace;
-    using device_type = exec_space::device_type;
+    using memory_space  = exec_space::memory_space;
 
     // initialize the simulation
     Simulation db( MPI_COMM_WORLD, argc, argv );
@@ -23,11 +23,11 @@ void run( int argc, char* argv[] )
     MovingBeam beam(db.source.scan_path_file);
 
     // create the global mesh
-    Grid<device_type> grid( MPI_COMM_WORLD,
-                            db.space.cell_size,
-                            db.space.global_low_corner,
-                            db.space.global_high_corner,
-                            db.space.initial_temperature );
+    Grid<memory_space> grid( MPI_COMM_WORLD,
+                             db.space.cell_size,
+                             db.space.global_low_corner,
+                             db.space.global_high_corner,
+                             db.space.initial_temperature );
 
     auto local_mesh = grid.getLocalMesh();
 

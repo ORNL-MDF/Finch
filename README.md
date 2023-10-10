@@ -1,4 +1,4 @@
-# finite-difference-cajita
+# finch
 
 Finite difference heat transfer using Cabana for additive manufacturing
 

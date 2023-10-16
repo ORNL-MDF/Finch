@@ -1,14 +1,16 @@
 #ifndef Simulation_H
 #define Simulation_H
 
-#include <iostream>
-#include <fstream>
-#include <array>
-#include <unistd.h>
 #include "yaml-cpp/yaml.h"
+#include <array>
+#include <fstream>
+#include <iostream>
+#include <unistd.h>
 
 // Info macro for writing on master
-#define Info if (rank == 0) std::cout
+#define Info                                                                   \
+    if ( rank == 0 )                                                           \
+    std::cout
 
 struct Time
 {
@@ -57,8 +59,8 @@ struct Sampling
 
 class Simulation
 {
-public:
-    //SolidificationOutput solidificationOutput;
+  public:
+    // SolidificationOutput solidificationOutput;
     Time time;
     Space space;
     Source source;
@@ -69,21 +71,19 @@ public:
     int size;
 
     // constructor
-    Simulation(MPI_Comm comm, int argc, char* argv[])
+    Simulation( MPI_Comm comm, int argc, char* argv[] )
     {
         MPI_Comm_rank( comm, &rank );
         MPI_Comm_size( comm, &size );
 
-        readInput(argc, argv);
-        
-        properties.thermal_diffusivity = 
-            ( properties.thermal_conductivity )
-          / ( properties.density * properties.specific_heat );
+        readInput( argc, argv );
 
-        time.time_step = 
-            ( time.Co * space.cell_size * space.cell_size )
-          / ( properties.thermal_diffusivity );
+        properties.thermal_diffusivity =
+            ( properties.thermal_conductivity ) /
+            ( properties.density * properties.specific_heat );
 
+        time.time_step = ( time.Co * space.cell_size * space.cell_size ) /
+                         ( properties.thermal_diffusivity );
 
         time.time = time.start_time;
 
@@ -109,7 +109,8 @@ public:
 
         // Print space
         Info << "Space:" << std::endl;
-        Info << "  Initial temperature: " << space.initial_temperature << std::endl;
+        Info << "  Initial temperature: " << space.initial_temperature
+             << std::endl;
         Info << "  Cell Size: " << space.cell_size << std::endl;
         Info << "  Global Low Corner:" << std::endl;
         Info << "    X: " << space.global_low_corner[0] << std::endl;
@@ -124,7 +125,8 @@ public:
         Info << "Properties:" << std::endl;
         Info << "  Density: " << properties.density << std::endl;
         Info << "  Specific Heat: " << properties.specific_heat << std::endl;
-        Info << "  Thermal Conductivity: " << properties.thermal_conductivity << std::endl;
+        Info << "  Thermal Conductivity: " << properties.thermal_conductivity
+             << std::endl;
         Info << "  Latent Heat: " << properties.latent_heat << std::endl;
         Info << "  Solidus: " << properties.solidus << std::endl;
         Info << "  Liquidus: " << properties.liquidus << std::endl;
@@ -140,78 +142,69 @@ public:
 
         // Print solidification output options
         Info << "Sampling:" << std::endl;
-        if (sampling.enabled)
+        if ( sampling.enabled )
         {
             Info << "  type: " << sampling.type << std::endl;
             Info << "  format:" << sampling.format << std::endl;
         }
         else
         {
-            Info<< "Skipping optional sampling." << std::endl;
+            Info << "Skipping optional sampling." << std::endl;
         }
     }
 
-private:
-    void readInput(int argc, char* argv[])
+  private:
+    void readInput( int argc, char* argv[] )
     {
         const char* filename = nullptr;
         int option;
 
-        while ((option = getopt(argc, argv, "i:")) != -1)
+        while ( ( option = getopt( argc, argv, "i:" ) ) != -1 )
         {
-            if (option == 'i') 
+            if ( option == 'i' )
             {
                 filename = optarg;
             }
             else
             {
-                std::cerr << "Usage: " << argv[0]
-                          << " -i <input_yaml_file>" << std::endl;
+                std::cerr << "Usage: " << argv[0] << " -i <input_yaml_file>"
+                          << std::endl;
                 return;
             }
         }
 
         // parse input file
         {
-            YAML::Node db = YAML::LoadFile(filename);
+            YAML::Node db = YAML::LoadFile( filename );
 
             // Read time components
-            time.Co =
-                db["time"]["Co"].as<double>();
-            time.start_time =
-                db["time"]["start_time"].as<double>();
-            time.end_time =
-                db["time"]["end_time"].as<double>();
-            time.num_output_steps =
-                db["time"]["num_output_steps"].as<int>();
+            time.Co = db["time"]["Co"].as<double>();
+            time.start_time = db["time"]["start_time"].as<double>();
+            time.end_time = db["time"]["end_time"].as<double>();
+            time.num_output_steps = db["time"]["num_output_steps"].as<int>();
 
             // Read space components
             space.initial_temperature =
                 db["space"]["initial_temperature"].as<double>();
-            space.cell_size =
-                db["space"]["cell_size"].as<double>();
+            space.cell_size = db["space"]["cell_size"].as<double>();
             space.global_low_corner =
                 db["space"]["global_low_corner"].as<std::array<double, 3>>();
             space.global_high_corner =
                 db["space"]["global_high_corner"].as<std::array<double, 3>>();
 
             // Read properties components
-            properties.density =
-                db["properties"]["density"].as<double>();
+            properties.density = db["properties"]["density"].as<double>();
             properties.specific_heat =
                 db["properties"]["specific_heat"].as<double>();
             properties.thermal_conductivity =
                 db["properties"]["thermal_conductivity"].as<double>();
             properties.latent_heat =
                 db["properties"]["latent_heat"].as<double>();
-            properties.solidus =
-                db["properties"]["solidus"].as<double>();
-            properties.liquidus =
-                db["properties"]["liquidus"].as<double>();
+            properties.solidus = db["properties"]["solidus"].as<double>();
+            properties.liquidus = db["properties"]["liquidus"].as<double>();
 
             // Read heat source components
-            source.absorption =
-                db["source"]["absorption"].as<double>();
+            source.absorption = db["source"]["absorption"].as<double>();
             source.two_sigma =
                 db["source"]["two_sigma"].as<std::array<double, 3>>();
 
@@ -224,12 +217,12 @@ private:
 
             // Read sampling components
             sampling.enabled = false;
-            if (db["sampling"])
+            if ( db["sampling"] )
             {
                 const std::string samplingType =
                     db["sampling"]["type"].as<std::string>();
 
-                if (samplingType == "solidification_data")
+                if ( samplingType == "solidification_data" )
                 {
                     sampling.type = samplingType;
                     sampling.enabled = true;
@@ -238,7 +231,7 @@ private:
                 const std::string samplingFormat =
                     db["sampling"]["format"].as<std::string>();
 
-                if (samplingFormat == "exaca")
+                if ( samplingFormat == "exaca" )
                 {
                     sampling.format = samplingFormat;
                 }

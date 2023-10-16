@@ -15,20 +15,18 @@
 void run( int argc, char* argv[] )
 {
     using exec_space = Kokkos::DefaultExecutionSpace;
-    using memory_space  = exec_space::memory_space;
+    using memory_space = exec_space::memory_space;
 
     // initialize the simulation
     Simulation db( MPI_COMM_WORLD, argc, argv );
 
     // initialize a moving beam
-    MovingBeam beam(db.source.scan_path_file);
+    MovingBeam beam( db.source.scan_path_file );
 
     // create the global mesh
-    Grid<memory_space> grid( MPI_COMM_WORLD,
-                             db.space.cell_size,
-                             db.space.global_low_corner,
-                             db.space.global_high_corner,
-                             db.space.initial_temperature );
+    Grid<memory_space> grid(
+        MPI_COMM_WORLD, db.space.cell_size, db.space.global_low_corner,
+        db.space.global_high_corner, db.space.initial_temperature );
 
     auto local_mesh = grid.getLocalMesh();
 
@@ -37,19 +35,18 @@ void run( int argc, char* argv[] )
                     db.source.two_sigma[1] / sqrt( 2.0 ),
                     db.source.two_sigma[2] / sqrt( 2.0 ) };
 
-    double I0 = ( 2.0 * db.source.absorption ) 
-              / ( M_PI * sqrt( M_PI ) * r[0] * r[1] * r[2] );
+    double I0 = ( 2.0 * db.source.absorption ) /
+                ( M_PI * sqrt( M_PI ) * r[0] * r[1] * r[2] );
 
     // time stepping
     double& time = db.time.time;
 
-    int numSteps = static_cast<int>(
-                        ( db.time.end_time - db.time.start_time )
-                      / ( db.time.time_step ));
+    int numSteps = static_cast<int>( ( db.time.end_time - db.time.start_time ) /
+                                     ( db.time.time_step ) );
 
-    int output_interval = static_cast<int>(
-                        ( numSteps / db.time.num_output_steps ));
-    
+    int output_interval =
+        static_cast<int>( ( numSteps / db.time.num_output_steps ) );
+
     // class for storing solidification data
     SolidificationData<memory_space> solidification_data( grid, db );
 
@@ -66,10 +63,7 @@ void run( int argc, char* argv[] )
 
     double rho_cp_Lf = rho * cp + rho * Lf / ( liquidus - solidus );
 
-    double k_by_dx2 = 
-        ( db.properties.thermal_conductivity )
-      / ( dx * dx );
-
+    double k_by_dx2 = ( db.properties.thermal_conductivity ) / ( dx * dx );
 
     // update the temperature field
     for ( int step = 0; step < numSteps; ++step )
@@ -93,22 +87,21 @@ void run( int argc, char* argv[] )
         // Solve finite difference
         Cajita::grid_parallel_for(
             "local_grid_for", exec_space(), grid.getIndexSpace(),
-            KOKKOS_LAMBDA( const int i, const int j, const int k )
-            {
+            KOKKOS_LAMBDA( const int i, const int j, const int k ) {
                 double x = T0( i, j, k, 0 );
 
                 // calculate linearized effective specific heat
-                double rho_cp_eff = 
+                double rho_cp_eff =
                     ( x >= solidus && x <= liquidus ) ? rho_cp_Lf : rho_cp;
 
                 double dt_by_rho_cp = dt / rho_cp_eff;
 
                 // calculate diffusion term
                 double laplacian =
-                    ( -6.0 * T0( i, j, k, 0 ) + 
-                      T0( i - 1, j, k, 0 ) + T0( i + 1, j, k, 0 ) +
-                      T0( i, j - 1, k, 0 ) + T0( i, j + 1, k, 0 ) +
-                      T0( i, j, k - 1, 0 ) + T0( i, j, k + 1, 0 ) ) *
+                    ( -6.0 * T0( i, j, k, 0 ) + T0( i - 1, j, k, 0 ) +
+                      T0( i + 1, j, k, 0 ) + T0( i, j - 1, k, 0 ) +
+                      T0( i, j + 1, k, 0 ) + T0( i, j, k - 1, 0 ) +
+                      T0( i, j, k + 1, 0 ) ) *
                     k_by_dx2 * dt_by_rho_cp;
 
                 // calculate heating source term
@@ -135,7 +128,6 @@ void run( int argc, char* argv[] )
                 }
 
                 T( i, j, k, 0 ) = T0( i, j, k, 0 ) + laplacian + q_dot;
-
             } );
 
         // update boundaries
@@ -147,7 +139,7 @@ void run( int argc, char* argv[] )
         solidification_data.update();
 
         // Write the current temperature field
-        if ( output_interval && (step % output_interval == 0 ) )
+        if ( output_interval && ( step % output_interval == 0 ) )
         {
             grid.output( step, step * db.time.time_step );
         }

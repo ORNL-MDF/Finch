@@ -36,7 +36,7 @@ class MovingBeam
 
   public:
     //! Default constructor
-    MovingBeam(const std::string scan_path_file);
+    MovingBeam( const std::string scan_path_file );
 
     //! Destructor
     virtual ~MovingBeam() {}

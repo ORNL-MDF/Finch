@@ -50,3 +50,4 @@ cmake \
   -D CMAKE_INSTALL_PREFIX=install \
   .. ;
 make -j install
+

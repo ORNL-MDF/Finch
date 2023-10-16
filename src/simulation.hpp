@@ -44,6 +44,7 @@ struct Properties
     double thermal_conductivity;
     double thermal_diffusivity;
     double latent_heat;
+    double solidus;
     double liquidus;
 };
 
@@ -125,6 +126,7 @@ public:
         Info << "  Specific Heat: " << properties.specific_heat << std::endl;
         Info << "  Thermal Conductivity: " << properties.thermal_conductivity << std::endl;
         Info << "  Latent Heat: " << properties.latent_heat << std::endl;
+        Info << "  Solidus: " << properties.solidus << std::endl;
         Info << "  Liquidus: " << properties.liquidus << std::endl;
 
         // Print source
@@ -202,6 +204,8 @@ private:
                 db["properties"]["thermal_conductivity"].as<double>();
             properties.latent_heat =
                 db["properties"]["latent_heat"].as<double>();
+            properties.solidus =
+                db["properties"]["solidus"].as<double>();
             properties.liquidus =
                 db["properties"]["liquidus"].as<double>();
 

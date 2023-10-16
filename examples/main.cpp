@@ -32,15 +32,6 @@ void run( int argc, char* argv[] )
 
     auto local_mesh = grid.getLocalMesh();
 
-    // solution controls
-    double alpha_dt_by_dx2 = 
-        ( db.properties.thermal_diffusivity * db.time.time_step )
-      / ( db.space.cell_size * db.space.cell_size );
-
-    double dt_by_rho_cp = 
-        ( db.time.time_step )
-      / ( db.properties.density * db.properties.specific_heat );
-
     // gaussian heat source parameters
     double r[3] = { db.source.two_sigma[0] / sqrt( 2.0 ),
                     db.source.two_sigma[1] / sqrt( 2.0 ),
@@ -59,13 +50,31 @@ void run( int argc, char* argv[] )
     int output_interval = static_cast<int>(
                         ( numSteps / db.time.num_output_steps ));
     
-    // struct for holding solidification data
+    // class for storing solidification data
     SolidificationData<memory_space> solidification_data( grid, db );
+
+    // reference to thermophysical properties
+    double dt = db.time.time_step;
+    double dx = db.space.cell_size;
+    double rho = db.properties.density;
+    double cp = db.properties.specific_heat;
+    double Lf = db.properties.latent_heat;
+    double solidus = db.properties.solidus;
+    double liquidus = db.properties.liquidus;
+
+    double rho_cp = rho * cp;
+
+    double rho_cp_Lf = rho * cp + rho * Lf / ( liquidus - solidus );
+
+    double k_by_dx2 = 
+        ( db.properties.thermal_conductivity )
+      / ( dx * dx );
+
 
     // update the temperature field
     for ( int step = 0; step < numSteps; ++step )
     {
-        time += db.time.time_step;
+        time += dt;
 
         // update beam position
         beam.move( time );
@@ -86,31 +95,44 @@ void run( int argc, char* argv[] )
             "local_grid_for", exec_space(), grid.getIndexSpace(),
             KOKKOS_LAMBDA( const int i, const int j, const int k )
             {
+                double x = T0( i, j, k, 0 );
+
+                // calculate linearized effective specific heat
+                double rho_cp_eff = 
+                    ( x >= solidus && x <= liquidus ) ? rho_cp_Lf : rho_cp;
+
+                double dt_by_rho_cp = dt / rho_cp_eff;
+
                 // calculate diffusion term
                 double laplacian =
-                    ( -6.0 * T0( i, j, k, 0 ) + T0( i - 1, j, k, 0 ) +
-                      T0( i + 1, j, k, 0 ) + T0( i, j - 1, k, 0 ) +
-                      T0( i, j + 1, k, 0 ) + T0( i, j, k - 1, 0 ) +
-                      T0( i, j, k + 1, 0 ) ) *
-                    alpha_dt_by_dx2;
+                    ( -6.0 * T0( i, j, k, 0 ) + 
+                      T0( i - 1, j, k, 0 ) + T0( i + 1, j, k, 0 ) +
+                      T0( i, j - 1, k, 0 ) + T0( i, j + 1, k, 0 ) +
+                      T0( i, j, k - 1, 0 ) + T0( i, j, k + 1, 0 ) ) *
+                    k_by_dx2 * dt_by_rho_cp;
 
-                // calculate source term
-                double cell_loc[3], cell_dist_to_beam[3];
-                int idx[3] = { i, j, k };
-                local_mesh.coordinates( Cajita::Cell(), idx, cell_loc );
+                // calculate heating source term
+                double q_dot = 0.0;
 
-                cell_dist_to_beam[0] = fabs( cell_loc[0] - beam_pos_x );
-                cell_dist_to_beam[1] = fabs( cell_loc[1] - beam_pos_y );
-                cell_dist_to_beam[2] = fabs( cell_loc[2] - beam_pos_z );
+                if ( beam_power )
+                {
+                    double cell_loc[3], cell_dist_to_beam[3];
+                    int idx[3] = { i, j, k };
+                    local_mesh.coordinates( Cajita::Cell(), idx, cell_loc );
 
-                double f = ( cell_dist_to_beam[0] * cell_dist_to_beam[0] /
-                             r[0] / r[0] ) +
-                           ( cell_dist_to_beam[1] * cell_dist_to_beam[1] /
-                             r[1] / r[1] ) +
-                           ( cell_dist_to_beam[2] * cell_dist_to_beam[2] /
-                             r[2] / r[2] );
+                    cell_dist_to_beam[0] = fabs( cell_loc[0] - beam_pos_x );
+                    cell_dist_to_beam[1] = fabs( cell_loc[1] - beam_pos_y );
+                    cell_dist_to_beam[2] = fabs( cell_loc[2] - beam_pos_z );
 
-                double q_dot = I0 * beam_power * exp( -f ) * dt_by_rho_cp;
+                    double f = ( cell_dist_to_beam[0] * cell_dist_to_beam[0] /
+                                 r[0] / r[0] ) +
+                               ( cell_dist_to_beam[1] * cell_dist_to_beam[1] /
+                                 r[1] / r[1] ) +
+                               ( cell_dist_to_beam[2] * cell_dist_to_beam[2] /
+                                 r[2] / r[2] );
+
+                    q_dot = I0 * beam_power * exp( -f ) * dt_by_rho_cp;
+                }
 
                 T( i, j, k, 0 ) = T0( i, j, k, 0 ) + laplacian + q_dot;
 

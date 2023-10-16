@@ -8,7 +8,7 @@
 
 const double MovingBeam::eps = 1e-10;
 
-MovingBeam::MovingBeam(const std::string scan_path_file)
+MovingBeam::MovingBeam( const std::string scan_path_file )
     : path( 1, BeamSegment() )
     , index_( 0 )
     , power_( 0.0 )
@@ -22,8 +22,7 @@ MovingBeam::MovingBeam(const std::string scan_path_file)
 
 void MovingBeam::readPath()
 {
-
-    //const std::string pFile_ = "scanPath.txt";
+    // const std::string pFile_ = "scanPath.txt";
 
     std::ifstream is( pFile_ );
 

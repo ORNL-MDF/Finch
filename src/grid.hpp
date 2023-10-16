@@ -15,7 +15,7 @@ class Grid
     using entity_type = Cajita::Cell;
     using mesh_type = Cajita::UniformMesh<double>;
     using array_type =
-    Cajita::Array<double, entity_type, mesh_type, memory_space>;
+        Cajita::Array<double, entity_type, mesh_type, memory_space>;
     //! MPI rank and number of ranks
     int comm_rank, comm_size;
 
@@ -118,8 +118,8 @@ class Grid
         auto planes = boundary_planes;
         Cajita::grid_parallel_for(
             "boundary_update", exec_space{}, boundary_spaces,
-            KOKKOS_LAMBDA( const int b, const int i, const int j, const int k )
-            {
+            KOKKOS_LAMBDA( const int b, const int i, const int j,
+                           const int k ) {
                 T_view( i, j, k, 0 ) = T_view(
                     i - planes[b][0], j - planes[b][1], k - planes[b][2], 0 );
             } );

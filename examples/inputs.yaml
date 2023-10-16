@@ -6,21 +6,22 @@ time:
 
 space:
   initial_temperature: 300.0
-  cell_size: 25e-6
-  global_low_corner: [-5e-4, 4.5e-4, -5e-4]
-  global_high_corner: [5.5e-3, 5.5e-3, 0.0]
+  cell_size: 10e-6
+  global_low_corner: [-5e-4, -5e-4, -5e-4]
+  global_high_corner: [2.5e-3, 5e-4, 0.0]
 
 properties:
   density: 7500.0
   specific_heat: 750.0
   thermal_conductivity: 25.0
   latent_heat: 2e5
+  solidus: 1410.0
   liquidus: 1620.0
 
 source:
   absorption: 0.3
   two_sigma: [60e-6, 60e-6, 60e-6]
-  scan_path_file: scanPaths/scanPath.txt
+  scan_path_file: scanPaths/single_line.txt
 
 sampling:
   type: solidification_data

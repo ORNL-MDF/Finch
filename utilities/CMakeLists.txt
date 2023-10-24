@@ -1,0 +1,1 @@
+add_subdirectory(rotate_scan_paths)

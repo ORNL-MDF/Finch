@@ -1,4 +1,4 @@
-# finch
+# Finch
 
 Finite difference heat transfer using Cabana for additive manufacturing
 
@@ -68,23 +68,6 @@ cmake \
   -D CMAKE_INSTALL_PREFIX=install \
   .. ;
 make -j install
-```
-
-Finch also contains some helpful utilies. A simple example to build the the scan path rotation utilities is:
-```
-# Build rotate_scan_path utility
-export YAML_DIR=$HOME/yaml-cpp
-pushd utilities/rotate_scan_paths
-mkdir build
-pushd build
-cmake \
-  -D CMAKE_BUILD_TYPE="Release" \
-  -D CMAKE_PREFIX_PATH=$YAML_DIR/build/install \
-  -D CMAKE_INSTALL_PREFIX=install \
-  .. ;
-make -j install
-popd
-popd
 ```
 
 ## License

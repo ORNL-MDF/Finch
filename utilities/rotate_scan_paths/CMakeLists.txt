@@ -1,14 +1,21 @@
-cmake_minimum_required(VERSION 3.12)
-project(rotate_scan_path)
+file(GLOB ROTATE_HEADERS rotate_scan_paths.hpp)
+file(GLOB ROTATE_SOURCE rotate_scan_paths.cpp)
 
-include(GNUInstallDirs)
+add_library(RotateScanPaths INTERFACE)
+target_link_libraries(RotateScanPaths INTERFACE Core)
 
-set(SOURCE_FILES rotate_scan_paths.cpp)
+target_include_directories(Core PUBLIC
+                           $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+                           $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+                           $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+install(TARGETS Core DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-add_executable(rotate_scan_path ${SOURCE_FILES})
+install(TARGETS RotateScanPaths
+  EXPORT Finch_Targets
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-find_package(yaml-cpp REQUIRED)
+add_executable(rotate_scan_paths ${ROTATE_SOURCE})
+target_link_libraries(rotate_scan_paths RotateScanPaths)
 
-target_link_libraries(rotate_scan_path yaml-cpp::yaml-cpp)
-
-install(TARGETS rotate_scan_path DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS rotate_scan_paths DESTINATION ${CMAKE_INSTALL_BINDIR})

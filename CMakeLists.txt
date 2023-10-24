@@ -9,3 +9,4 @@ find_package(yaml-cpp REQUIRED)
 
 add_subdirectory(src)
 add_subdirectory(examples)
+add_subdirectory(utilities)

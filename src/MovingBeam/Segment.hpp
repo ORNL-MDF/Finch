@@ -3,13 +3,13 @@
   \brief Class for properties of a moving heat source
 */
 
-#ifndef BeamSegment_H
-#define BeamSegment_H
+#ifndef Segment_H
+#define Segment_H
 
 #include <string>
 #include <vector>
 
-class BeamSegment
+class Segment
 {
   private:
     //! 0 or 1 (1 = point source, 0 = line source)
@@ -25,13 +25,13 @@ class BeamSegment
 
   public:
     //! Default construction
-    BeamSegment();
+    Segment();
 
     //! Construct from space-delimited string
-    BeamSegment( std::string );
+    Segment( std::string );
 
     //! Destructor
-    virtual ~BeamSegment() {}
+    virtual ~Segment() {}
 
     //! Set time to provided value
     void setTime( double time );

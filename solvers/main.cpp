@@ -7,10 +7,10 @@
 #include <Cajita.hpp>
 #include <Kokkos_Core.hpp>
 
-#include "grid.hpp"
-#include "movingBeam/moving_beam.hpp"
-#include "simulation.hpp"
-#include "solidificationData.hpp"
+#include "Grid.hpp"
+#include "MovingBeam/MovingBeam.hpp"
+#include "Simulation.hpp"
+#include "SolidificationData.hpp"
 
 void run( int argc, char* argv[] )
 {
@@ -41,11 +41,11 @@ void run( int argc, char* argv[] )
     // time stepping
     double& time = db.time.time;
 
-    int numSteps = static_cast<int>( ( db.time.end_time - db.time.start_time ) /
-                                     ( db.time.time_step ) );
+    int num_steps = static_cast<int>(
+        ( db.time.end_time - db.time.start_time ) / ( db.time.time_step ) );
 
     int output_interval =
-        static_cast<int>( ( numSteps / db.time.num_output_steps ) );
+        static_cast<int>( ( num_steps / db.time.num_output_steps ) );
 
     // class for storing solidification data
     SolidificationData<memory_space> solidification_data( grid, db );
@@ -66,7 +66,7 @@ void run( int argc, char* argv[] )
     double k_by_dx2 = ( db.properties.thermal_conductivity ) / ( dx * dx );
 
     // update the temperature field
-    for ( int step = 0; step < numSteps; ++step )
+    for ( int step = 0; step < num_steps; ++step )
     {
         time += dt;
 
@@ -146,7 +146,7 @@ void run( int argc, char* argv[] )
     }
 
     // Write the final temperature field
-    grid.output( numSteps, numSteps * db.time.time_step );
+    grid.output( num_steps, num_steps * db.time.time_step );
 
     // Write the temperature data used by ExaCA/other post-processing
     solidification_data.write();

@@ -219,21 +219,21 @@ class Simulation
             sampling.enabled = false;
             if ( db["sampling"] )
             {
-                const std::string samplingType =
+                const std::string sampling_type =
                     db["sampling"]["type"].as<std::string>();
 
-                if ( samplingType == "solidification_data" )
+                if ( sampling_type == "solidification_data" )
                 {
-                    sampling.type = samplingType;
+                    sampling.type = sampling_type;
                     sampling.enabled = true;
                 }
 
-                const std::string samplingFormat =
+                const std::string sampling_format =
                     db["sampling"]["format"].as<std::string>();
 
-                if ( samplingFormat == "exaca" )
+                if ( sampling_format == "exaca" )
                 {
-                    sampling.format = samplingFormat;
+                    sampling.format = sampling_format;
                 }
                 else
                 {

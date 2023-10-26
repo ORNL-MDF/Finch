@@ -1,6 +1,6 @@
-file(GLOB CORE_HEADERS GLOB *.hpp movingBeam/*.hpp)
+file(GLOB CORE_HEADERS GLOB *.hpp MovingBeam/*.hpp)
 
-file(GLOB CORE_SOURCE *.cpp movingBeam/*.cpp)
+file(GLOB CORE_SOURCE *.cpp MovingBeam/*.cpp)
 
 add_library(Core ${CORE_SOURCE})
 target_link_libraries(Core Cabana::Cajita yaml-cpp::yaml-cpp)

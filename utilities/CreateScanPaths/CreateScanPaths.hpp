@@ -282,7 +282,7 @@ struct Path
     }
 
     void write( const std::string& filename,
-                const bool biDirection = true ) const
+                const bool bi_direction = true ) const
     {
         std::ofstream file( filename );
 
@@ -295,8 +295,8 @@ struct Path
             Point first = line.start;
             Point second = line.end;
 
-            // reverse the odd lines for bidirectional
-            if ( biDirection && i % 2 == 1 )
+            // reverse the odd lines for bi_directional
+            if ( bi_direction && i % 2 == 1 )
             {
                 first = line.end;
                 second = line.start;

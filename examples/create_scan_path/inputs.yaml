@@ -9,4 +9,4 @@ power: 195.0
 speed: 0.8
 dwell_time: 0.005
 
-biDirection: true
+bi_direction: true

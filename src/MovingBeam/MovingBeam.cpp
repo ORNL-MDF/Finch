@@ -4,12 +4,12 @@
 #include <iostream>
 #include <sstream>
 
-#include "moving_beam.hpp"
+#include "MovingBeam.hpp"
 
 const double MovingBeam::eps = 1e-10;
 
 MovingBeam::MovingBeam( const std::string scan_path_file )
-    : path( 1, BeamSegment() )
+    : path( 1, Segment() )
     , index_( 0 )
     , power_( 0.0 )
 {
@@ -44,7 +44,7 @@ void MovingBeam::readPath()
             continue;
         }
 
-        path.push_back( BeamSegment( line ) );
+        path.push_back( Segment( line ) );
     }
 
     for ( std::size_t i = 1; i < path.size(); i++ )
@@ -117,14 +117,13 @@ int MovingBeam::findIndex( const double time )
     const int n = path.size() - 1;
 
     // step back path index for safe updating
-    int i1;
-    for ( i1 = index_; i1 > 0 && path[i1].time() > time; --i1 )
+    int i = index_;
+    for ( i = index_; i > 0 && path[i].time() > time; --i )
     {
     }
 
     // update the path index to the provided time
-    int i;
-    for ( i = i1; i < n && path[i].time() < time; ++i )
+    for ( i = i; i < n && path[i].time() < time; ++i )
     {
     }
 

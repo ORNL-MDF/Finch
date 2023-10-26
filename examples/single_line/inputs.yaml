@@ -21,7 +21,7 @@ properties:
 source:
   absorption: 0.3
   two_sigma: [60e-6, 60e-6, 60e-6]
-  scan_path_file: scanPaths/single_line.txt
+  scan_path_file: scan_path.txt
 
 sampling:
   type: solidification_data

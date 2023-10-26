@@ -8,5 +8,5 @@ find_package(Cabana REQUIRED COMPONENTS Cabana::Cajita)
 find_package(yaml-cpp REQUIRED)
 
 add_subdirectory(src)
-add_subdirectory(examples)
+add_subdirectory(solvers)
 add_subdirectory(utilities)

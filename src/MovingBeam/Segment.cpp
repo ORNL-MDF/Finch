@@ -2,16 +2,16 @@
 #include <iostream>
 #include <sstream>
 
-#include "segment.hpp"
+#include "Segment.hpp"
 
-void BeamSegment::setTime( double time ) { time_ = time; }
+void Segment::setTime( double time ) { time_ = time; }
 
-void BeamSegment::setPosition( std::vector<double> position )
+void Segment::setPosition( std::vector<double> position )
 {
     position_ = position;
 }
 
-BeamSegment::BeamSegment()
+Segment::Segment()
     : mode_( 1 )
     , power_( 0.0 )
     , parameter_( 0.0 )
@@ -20,7 +20,7 @@ BeamSegment::BeamSegment()
     position_.resize( 3, 0.0 );
 }
 
-BeamSegment::BeamSegment( std::string line )
+Segment::Segment( std::string line )
 {
     position_.resize( 3, 0.0 );
     std::stringstream lineStream( line );

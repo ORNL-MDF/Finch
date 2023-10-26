@@ -6,7 +6,7 @@
 #ifndef MovingBeam_H
 #define MovingBeam_H
 
-#include "movingBeam/segment.hpp"
+#include "MovingBeam/Segment.hpp"
 
 #include <vector>
 
@@ -14,7 +14,7 @@ class MovingBeam
 {
   private:
     //! List of segments
-    std::vector<BeamSegment> path;
+    std::vector<Segment> path;
 
     //! Scan path file name
     std::string pFile_;

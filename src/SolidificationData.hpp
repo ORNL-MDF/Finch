@@ -1,5 +1,5 @@
-#ifndef solidificationData_H
-#define solidificationData_H
+#ifndef SolidificationData_H
+#define SolidificationData_H
 
 #include <array>
 #include <iostream>
@@ -11,8 +11,8 @@
 #include <Cajita.hpp>
 #include <Kokkos_Core.hpp>
 
-#include <grid.hpp>
-#include <simulation.hpp>
+#include <Grid.hpp>
+#include <Simulation.hpp>
 
 template <typename MemorySpace>
 class SolidificationData

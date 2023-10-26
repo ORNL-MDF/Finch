@@ -10,7 +10,7 @@
 
 #include "yaml-cpp/yaml.h"
 
-#include "rotate_scan_paths.hpp"
+#include "CreateScanPaths.hpp"
 
 int main( int argc, char* argv[] )
 {
@@ -50,10 +50,10 @@ int main( int argc, char* argv[] )
     double speed = config["speed"].as<double>();
     double dwell_time = config["dwell_time"].as<double>();
 
-    bool biDirection = true;
-    if ( config["biDirection"] )
+    bool bi_direction = true;
+    if ( config["bi_direction"] )
     {
-        biDirection = config["biDirection"].as<bool>();
+        bi_direction = config["bi_direction"].as<bool>();
     }
 
     // Create bounding box for scan vectors
@@ -74,9 +74,9 @@ int main( int argc, char* argv[] )
         std::ostringstream oss;
         oss << std::fixed << std::setprecision( 0 ) << rotation;
         std::string rotationString = oss.str();
-        std::string filename = "scanPath_" + rotationString + ".txt";
+        std::string filename = "path_" + rotationString + ".txt";
 
-        path.write( filename, biDirection );
+        path.write( filename, bi_direction );
 
         rotation += angle;
     }

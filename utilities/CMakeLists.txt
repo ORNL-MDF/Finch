@@ -1,1 +1,1 @@
-add_subdirectory(rotate_scan_paths)
+add_subdirectory(CreateScanPaths)

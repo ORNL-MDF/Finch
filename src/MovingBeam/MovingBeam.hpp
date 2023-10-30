@@ -22,14 +22,14 @@ class MovingBeam
     //! index of path
     int index_;
 
-    //! end time of path
-    double endTime_;
-
     //! current position of moving beam
     std::vector<double> position_;
 
     //! current power of moving beam
     double power_;
+
+    //! end time of path
+    double endTime_;
 
     //! tolerance for scan path intervals
     static const double eps;

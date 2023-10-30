@@ -6,24 +6,34 @@
 
 #include "MovingBeam.hpp"
 
+// a small floating point value used for consistent path update logic
 const double MovingBeam::eps = 1e-10;
 
 MovingBeam::MovingBeam( const std::string scan_path_file )
     : path( 1, Segment() )
     , index_( 0 )
     , power_( 0.0 )
+    , endTime_( 0.0 )
 {
     position_.resize( 3, 0.0 );
 
     // read the scan path file
     pFile_ = scan_path_file;
     readPath();
+
+    // find the beam end time, i.e. the last time power is on
+    for ( std::size_t i = path.size() - 1; i > 0; i-- )
+    {
+        if ( path[i].power() > eps )
+        {
+            endTime_ = path[i].time();
+            break;
+        }
+    }
 }
 
 void MovingBeam::readPath()
 {
-    // const std::string pFile_ = "scanPath.txt";
-
     std::ifstream is( pFile_ );
 
     if ( !is.good() )
@@ -69,6 +79,13 @@ void MovingBeam::readPath()
 
 void MovingBeam::move( const double time )
 {
+    // turn off the laser power and stop position update at the end of the path
+    if ( ( time - endTime_ ) > eps )
+    {
+        power_ = 0.0;
+        return;
+    }
+
     // update the current index of the path
     index_ = findIndex( time );
 
@@ -123,7 +140,7 @@ int MovingBeam::findIndex( const double time )
     }
 
     // update the path index to the provided time
-    for ( i = i; i < n && path[i].time() < time; ++i )
+    for ( ; i < n && path[i].time() < time; ++i )
     {
     }
 

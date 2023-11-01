@@ -8,4 +8,4 @@ FINCH_DIR=`pwd`/../..
 application=$FINCH_DIR/build/install/bin/finch
 
 # run application
-$application -i inputs.yaml
+mpirun -np 8 $application -i inputs.yaml

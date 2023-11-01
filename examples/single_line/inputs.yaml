@@ -2,7 +2,8 @@ time:
   Co: 0.125
   start_time: 0.0
   end_time: 0.01
-  num_output_steps: 10
+  total_output_steps: 10
+  total_monitor_steps: 10
 
 space:
   initial_temperature: 300.0

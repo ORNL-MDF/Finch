@@ -45,7 +45,7 @@ void run( int argc, char* argv[] )
         ( db.time.end_time - db.time.start_time ) / ( db.time.time_step ) );
 
     int output_interval =
-        static_cast<int>( ( num_steps / db.time.num_output_steps ) );
+        static_cast<int>( ( num_steps / db.time.total_output_steps ) );
 
     // class for storing solidification data
     SolidificationData<memory_space> solidification_data( grid, db );
@@ -68,6 +68,8 @@ void run( int argc, char* argv[] )
     // update the temperature field
     for ( int step = 0; step < num_steps; ++step )
     {
+        db.time_monitor.update();
+
         time += dt;
 
         // update beam position
@@ -143,6 +145,8 @@ void run( int argc, char* argv[] )
         {
             grid.output( step, step * db.time.time_step );
         }
+
+        db.time_monitor.write( step, num_steps );
     }
 
     // Write the final temperature field

@@ -29,6 +29,7 @@ void run( int argc, char* argv[] )
         db.space.global_high_corner, db.space.initial_temperature );
 
     auto local_mesh = grid.getLocalMesh();
+    using entity_type = typename Grid<memory_space>::entity_type;
 
     // gaussian heat source parameters
     double r[3] = { db.source.two_sigma[0] / sqrt( 2.0 ),
@@ -111,19 +112,21 @@ void run( int argc, char* argv[] )
 
                 if ( beam_power )
                 {
-                    double cell_loc[3], cell_dist_to_beam[3];
+                    double grid_loc[3];
+                    double dist_to_beam[3];
                     int idx[3] = { i, j, k };
-                    local_mesh.coordinates( Cajita::Cell(), idx, cell_loc );
 
-                    cell_dist_to_beam[0] = fabs( cell_loc[0] - beam_pos_x );
-                    cell_dist_to_beam[1] = fabs( cell_loc[1] - beam_pos_y );
-                    cell_dist_to_beam[2] = fabs( cell_loc[2] - beam_pos_z );
+                    local_mesh.coordinates( entity_type(), idx, grid_loc );
 
-                    double f = ( cell_dist_to_beam[0] * cell_dist_to_beam[0] /
+                    dist_to_beam[0] = fabs( grid_loc[0] - beam_pos_x );
+                    dist_to_beam[1] = fabs( grid_loc[1] - beam_pos_y );
+                    dist_to_beam[2] = fabs( grid_loc[2] - beam_pos_z );
+
+                    double f = ( dist_to_beam[0] * dist_to_beam[0] /
                                  r[0] / r[0] ) +
-                               ( cell_dist_to_beam[1] * cell_dist_to_beam[1] /
+                               ( dist_to_beam[1] * dist_to_beam[1] /
                                  r[1] / r[1] ) +
-                               ( cell_dist_to_beam[2] * cell_dist_to_beam[2] /
+                               ( dist_to_beam[2] * dist_to_beam[2] /
                                  r[2] / r[2] );
 
                     q_dot = I0 * beam_power * exp( -f ) * dt_by_rho_cp;

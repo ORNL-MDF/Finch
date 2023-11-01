@@ -3,7 +3,9 @@
 
 #include "yaml-cpp/yaml.h"
 #include <array>
+#include <chrono>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <unistd.h>
 
@@ -19,7 +21,8 @@ struct Time
     double end_time;
     double time_step;
     double time;
-    int num_output_steps;
+    int total_output_steps;
+    int total_monitor_steps;
     int output_interval;
 };
 
@@ -57,15 +60,63 @@ struct Sampling
     bool enabled;
 };
 
+struct TimeMonitor
+{
+    std::chrono::high_resolution_clock::time_point start_time;
+    double total_elapsed_time;
+    long int total_monitor_steps;
+    int rank;
+
+    // Default constructor
+    TimeMonitor()
+        : total_elapsed_time( 0.0 )
+        , rank( 0 )
+        , total_monitor_steps( 1e10 )
+    {
+        start_time = std::chrono::high_resolution_clock::now();
+    }
+
+    // Constructor with MPI_Comm
+    TimeMonitor( MPI_Comm comm, Time& time )
+        : total_elapsed_time( 0.0 )
+    {
+        start_time = std::chrono::high_resolution_clock::now();
+        MPI_Comm_rank( comm, &rank );
+        total_monitor_steps = time.total_monitor_steps;
+    }
+
+    void update() { start_time = std::chrono::high_resolution_clock::now(); }
+
+    void write( int step, int num_steps )
+    {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end_time - start_time;
+        total_elapsed_time += elapsed_seconds.count();
+
+        int monitor_interval =
+            static_cast<int>( ( num_steps / total_monitor_steps ) );
+
+        if ( total_monitor_steps > num_steps ||
+             ( ( step + 1 ) % monitor_interval == 0 ) )
+        {
+            Info << "Time Step: " << step + 1 << "/" << num_steps << ", "
+                 << "Elapsed: " << std::fixed << std::setprecision( 6 )
+                 << elapsed_seconds.count() << " seconds, "
+                 << "Total: " << std::fixed << std::setprecision( 6 )
+                 << total_elapsed_time << " seconds" << std::endl;
+        }
+    }
+};
+
 class Simulation
 {
   public:
-    // SolidificationOutput solidificationOutput;
     Time time;
     Space space;
     Source source;
     Properties properties;
     Sampling sampling;
+    TimeMonitor time_monitor;
 
     int rank;
     int size;
@@ -90,6 +141,9 @@ class Simulation
         write();
 
         Info << "Calculated time step: " << time.time_step << std::endl;
+
+        // initialize time monitoring
+        time_monitor = TimeMonitor( comm, time );
     }
 
     void write()
@@ -97,7 +151,9 @@ class Simulation
         Info << "  Co: " << time.Co << std::endl;
         Info << "  Start Time: " << time.start_time << std::endl;
         Info << "  End Time: " << time.end_time << std::endl;
-        Info << "  Num Output Steps: " << time.num_output_steps << std::endl;
+        Info << "  Num Output Steps: " << time.total_output_steps << std::endl;
+        Info << "  Num Monitor Steps: " << time.total_monitor_steps
+             << std::endl;
         Info << "Simulation will be performed using parameters: " << std::endl;
 
         // Print time
@@ -105,7 +161,9 @@ class Simulation
         Info << "  Co: " << time.Co << std::endl;
         Info << "  Start Time: " << time.start_time << std::endl;
         Info << "  End Time: " << time.end_time << std::endl;
-        Info << "  Num Output Steps: " << time.num_output_steps << std::endl;
+        Info << "  Num Output Steps: " << time.total_output_steps << std::endl;
+        Info << "  Num Monitor Steps: " << time.total_monitor_steps
+             << std::endl;
 
         // Print space
         Info << "Space:" << std::endl;
@@ -181,7 +239,10 @@ class Simulation
             time.Co = db["time"]["Co"].as<double>();
             time.start_time = db["time"]["start_time"].as<double>();
             time.end_time = db["time"]["end_time"].as<double>();
-            time.num_output_steps = db["time"]["num_output_steps"].as<int>();
+            time.total_output_steps =
+                db["time"]["total_output_steps"].as<int>();
+            time.total_monitor_steps =
+                db["time"]["total_monitor_steps"].as<int>();
 
             // Read space components
             space.initial_temperature =

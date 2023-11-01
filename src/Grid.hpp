@@ -12,7 +12,7 @@ class Grid
     using memory_space = MemorySpace;
     // Default Kokkos execution space for this memory space.
     using exec_space = typename MemorySpace::execution_space;
-    using entity_type = Cajita::Cell;
+    using entity_type = Cajita::Node;
     using mesh_type = Cajita::UniformMesh<double>;
     using array_type =
         Cajita::Array<double, entity_type, mesh_type, memory_space>;

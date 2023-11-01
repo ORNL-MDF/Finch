@@ -84,6 +84,8 @@ class SolidificationData
         auto local_events = events;
         auto local_tm_view = tm_view;
 
+        using entity_type = typename Grid<memory_space>::entity_type;
+
         Cajita::grid_parallel_for(
             "local_grid_for", exec_space(), grid.getIndexSpace(),
             KOKKOS_LAMBDA( const int i, const int j, const int k ) {
@@ -100,7 +102,7 @@ class SolidificationData
                         // event coordinates
                         double pt[3];
                         int idx[3] = { i, j, k };
-                        local_mesh.coordinates( Cajita::Cell(), idx, pt );
+                        local_mesh.coordinates( entity_type(), idx, pt );
                         local_events( current_count, 0 ) = pt[0];
                         local_events( current_count, 1 ) = pt[1];
                         local_events( current_count, 2 ) = pt[2];

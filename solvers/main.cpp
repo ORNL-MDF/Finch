@@ -36,8 +36,14 @@ void run( int argc, char* argv[] )
                     db.source.two_sigma[1] / sqrt( 2.0 ),
                     db.source.two_sigma[2] / sqrt( 2.0 ) };
 
+    double A_inv[3] = { 1.0 / r[0] / r[0], 1.0 / r[1] / r[1],
+                        1.0 / r[2] / r[2] };
+
     double I0 = ( 2.0 * db.source.absorption ) /
                 ( M_PI * sqrt( M_PI ) * r[0] * r[1] * r[2] );
+
+    // cut off for 3 standard deviations from heat source center
+    double f_max = log( 3 ) + 2 * log( 10 );
 
     // time stepping
     double& time = db.time.time;
@@ -118,18 +124,19 @@ void run( int argc, char* argv[] )
 
                     local_mesh.coordinates( entity_type(), idx, grid_loc );
 
-                    dist_to_beam[0] = fabs( grid_loc[0] - beam_pos_x );
-                    dist_to_beam[1] = fabs( grid_loc[1] - beam_pos_y );
-                    dist_to_beam[2] = fabs( grid_loc[2] - beam_pos_z );
+                    dist_to_beam[0] = grid_loc[0] - beam_pos_x;
+                    dist_to_beam[1] = grid_loc[1] - beam_pos_y;
+                    dist_to_beam[2] = grid_loc[2] - beam_pos_z;
 
-                    double f = ( dist_to_beam[0] * dist_to_beam[0] /
-                                 r[0] / r[0] ) +
-                               ( dist_to_beam[1] * dist_to_beam[1] /
-                                 r[1] / r[1] ) +
-                               ( dist_to_beam[2] * dist_to_beam[2] /
-                                 r[2] / r[2] );
+                    double f =
+                        ( dist_to_beam[0] * dist_to_beam[0] * A_inv[0] ) +
+                        ( dist_to_beam[1] * dist_to_beam[1] * A_inv[1] ) +
+                        ( dist_to_beam[2] * dist_to_beam[2] * A_inv[2] );
 
-                    q_dot = I0 * beam_power * exp( -f ) * dt_by_rho_cp;
+                    if ( f < f_max )
+                    {
+                        q_dot = I0 * beam_power * exp( -f ) * dt_by_rho_cp;
+                    }
                 }
 
                 T( i, j, k, 0 ) = T0( i, j, k, 0 ) + laplacian + q_dot;

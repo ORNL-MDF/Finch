@@ -23,10 +23,15 @@ void run( int argc, char* argv[] )
     // initialize a moving beam
     MovingBeam beam( db.source.scan_path_file );
 
+    // Define boundary condition details.
+    std::array<std::string, 6> bc_types = { "adiabatic", "adiabatic",
+                                            "adiabatic", "adiabatic",
+                                            "adiabatic", "adiabatic" };
+
     // create the global mesh
     Grid<memory_space> grid(
         MPI_COMM_WORLD, db.space.cell_size, db.space.global_low_corner,
-        db.space.global_high_corner, db.space.ranks_per_dim,
+        db.space.global_high_corner, db.space.ranks_per_dim, bc_types,
         db.space.initial_temperature );
 
     auto local_mesh = grid.getLocalMesh();

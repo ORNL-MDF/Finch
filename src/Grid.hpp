@@ -50,7 +50,6 @@ class Grid
         std::string name( "temperature" );
         T = Cajita::createArray<double, memory_space>( name, layout );
         Cajita::ArrayOp::assign( *T, initial_temperature, Cajita::Ghost() );
-        Cajita::ArrayOp::assign( *T, initial_temperature, Cajita::Own() );
 
         // create an array to store previous temperature for explicit udpate
         // Note: this is an entirely separate array on purpose (no shallow copy)

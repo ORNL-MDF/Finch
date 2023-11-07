@@ -49,11 +49,7 @@ void run( int argc, char* argv[] )
     // time stepping
     double& time = db.time.time;
 
-    int num_steps = static_cast<int>(
-        ( db.time.end_time - db.time.start_time ) / ( db.time.time_step ) );
-
-    int output_interval =
-        static_cast<int>( ( num_steps / db.time.total_output_steps ) );
+    int num_steps = db.time.num_steps;
 
     // class for storing solidification data
     SolidificationData<memory_space> solidification_data( grid, db );
@@ -152,16 +148,25 @@ void run( int argc, char* argv[] )
         solidification_data.update();
 
         // Write the current temperature field
-        if ( output_interval && ( step % output_interval == 0 ) )
+        if ( db.time.output_interval &&
+             ( step % db.time.output_interval == 0 ) )
         {
             grid.output( step, step * db.time.time_step );
         }
 
-        db.time_monitor.write( step, num_steps );
+        // Update time monitoring
+        if ( db.time.monitor_interval &&
+             ( step % db.time.monitor_interval == 0 ) )
+        {
+            db.time_monitor.write( step );
+        }
     }
 
     // Write the final temperature field
     grid.output( num_steps, num_steps * db.time.time_step );
+
+    // Write the final solution time
+    db.time_monitor.write( num_steps );
 
     // Write the temperature data used by ExaCA/other post-processing
     solidification_data.write();

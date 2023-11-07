@@ -23,7 +23,9 @@ struct Time
     double time;
     int total_output_steps;
     int total_monitor_steps;
+    int num_steps;
     int output_interval;
+    int monitor_interval;
 };
 
 struct Space
@@ -64,18 +66,14 @@ struct Sampling
 struct TimeMonitor
 {
     std::chrono::high_resolution_clock::time_point start_time;
+    std::chrono::duration<double> elapsed_seconds;
     double total_elapsed_time;
-    long int total_monitor_steps;
+    int total_monitor_steps;
+    int num_steps;
     int comm_rank;
 
     // Default constructor
-    TimeMonitor()
-        : total_elapsed_time( 0.0 )
-        , comm_rank( 0 )
-        , total_monitor_steps( 1e10 )
-    {
-        start_time = std::chrono::high_resolution_clock::now();
-    }
+    TimeMonitor(){};
 
     // Constructor with MPI_Comm
     TimeMonitor( MPI_Comm comm, Time& time )
@@ -84,28 +82,27 @@ struct TimeMonitor
         start_time = std::chrono::high_resolution_clock::now();
         MPI_Comm_rank( comm, &comm_rank );
         total_monitor_steps = time.total_monitor_steps;
+        num_steps = time.num_steps;
     }
 
-    void update() { start_time = std::chrono::high_resolution_clock::now(); }
-
-    void write( int step, int num_steps )
+    void update()
     {
         auto end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end_time - start_time;
+        elapsed_seconds = end_time - start_time;
         total_elapsed_time += elapsed_seconds.count();
 
-        int monitor_interval =
-            static_cast<int>( ( num_steps / total_monitor_steps ) );
+        start_time = std::chrono::high_resolution_clock::now();
+    }
 
-        if ( total_monitor_steps > num_steps ||
-             ( ( step + 1 ) % monitor_interval == 0 ) )
-        {
-            Info << "Time Step: " << step + 1 << "/" << num_steps << ", "
-                 << "Elapsed: " << std::fixed << std::setprecision( 6 )
-                 << elapsed_seconds.count() << " seconds, "
-                 << "Total: " << std::fixed << std::setprecision( 6 )
-                 << total_elapsed_time << " seconds" << std::endl;
-        }
+    void write( int step )
+    {
+        update();
+
+        Info << "Time Step: " << step << "/" << num_steps << ", "
+             << "Elapsed: " << std::fixed << std::setprecision( 6 )
+             << elapsed_seconds.count() << " seconds, "
+             << "Total: " << std::fixed << std::setprecision( 6 )
+             << total_elapsed_time << " seconds" << std::endl;
     }
 };
 
@@ -130,6 +127,9 @@ class Simulation
 
         readInput( argc, argv );
 
+        write();
+
+        // create auxilary properties
         properties.thermal_diffusivity =
             ( properties.thermal_conductivity ) /
             ( properties.density * properties.specific_heat );
@@ -137,11 +137,24 @@ class Simulation
         time.time_step = ( time.Co * space.cell_size * space.cell_size ) /
                          ( properties.thermal_diffusivity );
 
+        Info << "Calculated time step: " << time.time_step << std::endl;
+
         time.time = time.start_time;
 
-        write();
+        time.num_steps = static_cast<int>( ( time.end_time - time.start_time ) /
+                                           ( time.time_step ) );
 
-        Info << "Calculated time step: " << time.time_step << std::endl;
+        time.output_interval =
+            static_cast<int>( ( time.num_steps / time.total_output_steps ) );
+
+        time.output_interval =
+            std::max( std::min( time.output_interval, time.num_steps ), 1 );
+
+        time.monitor_interval =
+            static_cast<int>( ( time.num_steps / time.total_monitor_steps ) );
+
+        time.monitor_interval =
+            std::max( std::min( time.monitor_interval, time.num_steps ), 1 );
 
         // initialize time monitoring
         time_monitor = TimeMonitor( comm, time );

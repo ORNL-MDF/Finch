@@ -26,7 +26,8 @@ void run( int argc, char* argv[] )
     // create the global mesh
     Grid<memory_space> grid(
         MPI_COMM_WORLD, db.space.cell_size, db.space.global_low_corner,
-        db.space.global_high_corner, db.space.initial_temperature );
+        db.space.global_high_corner, db.space.ranks_per_dim,
+        db.space.initial_temperature );
 
     auto local_mesh = grid.getLocalMesh();
     using entity_type = typename Grid<memory_space>::entity_type;

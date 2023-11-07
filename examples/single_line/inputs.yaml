@@ -10,6 +10,7 @@ space:
   cell_size: 10e-6
   global_low_corner: [-5e-4, -5e-4, -5e-4]
   global_high_corner: [2.5e-3, 5e-4, 0.0]
+  ranks_per_dim: [4, 2, 1]
 
 properties:
   density: 7500.0

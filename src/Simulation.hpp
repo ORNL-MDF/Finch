@@ -11,7 +11,7 @@
 
 // Info macro for writing on master
 #define Info                                                                   \
-    if ( rank == 0 )                                                           \
+    if ( comm_rank == 0 )                                                      \
     std::cout
 
 struct Time
@@ -32,6 +32,7 @@ struct Space
     double cell_size;
     std::array<double, 3> global_low_corner;
     std::array<double, 3> global_high_corner;
+    std::array<int, 3> ranks_per_dim;
 };
 
 struct Source
@@ -65,12 +66,12 @@ struct TimeMonitor
     std::chrono::high_resolution_clock::time_point start_time;
     double total_elapsed_time;
     long int total_monitor_steps;
-    int rank;
+    int comm_rank;
 
     // Default constructor
     TimeMonitor()
         : total_elapsed_time( 0.0 )
-        , rank( 0 )
+        , comm_rank( 0 )
         , total_monitor_steps( 1e10 )
     {
         start_time = std::chrono::high_resolution_clock::now();
@@ -81,7 +82,7 @@ struct TimeMonitor
         : total_elapsed_time( 0.0 )
     {
         start_time = std::chrono::high_resolution_clock::now();
-        MPI_Comm_rank( comm, &rank );
+        MPI_Comm_rank( comm, &comm_rank );
         total_monitor_steps = time.total_monitor_steps;
     }
 
@@ -118,14 +119,14 @@ class Simulation
     Sampling sampling;
     TimeMonitor time_monitor;
 
-    int rank;
-    int size;
+    int comm_rank;
+    int comm_size;
 
     // constructor
     Simulation( MPI_Comm comm, int argc, char* argv[] )
     {
-        MPI_Comm_rank( comm, &rank );
-        MPI_Comm_size( comm, &size );
+        MPI_Comm_rank( comm, &comm_rank );
+        MPI_Comm_size( comm, &comm_size );
 
         readInput( argc, argv );
 
@@ -252,6 +253,28 @@ class Simulation
                 db["space"]["global_low_corner"].as<std::array<double, 3>>();
             space.global_high_corner =
                 db["space"]["global_high_corner"].as<std::array<double, 3>>();
+
+            /*
+              Default block partitioner. This relies on MPI_Cart_create to
+              balance the number of ranks in each direction. This partitioning
+              is best only in the global mesh is a uniform cube.
+            */
+            std::array<int, 3> default_ranks_per_dim = { 0, 0, 0 };
+
+            std::array<int, 3> ranks_per_dim =
+                db["space"]["ranks_per_dim"].as<std::array<int, 3>>(
+                    default_ranks_per_dim );
+
+            // Invalid partition strategy selected. Use Default block partioner.
+            int product =
+                ranks_per_dim[0] * ranks_per_dim[1] * ranks_per_dim[2];
+
+            if ( product != comm_size )
+            {
+                ranks_per_dim = default_ranks_per_dim;
+            }
+
+            space.ranks_per_dim = ranks_per_dim;
 
             // Read properties components
             properties.density = db["properties"]["density"].as<double>();

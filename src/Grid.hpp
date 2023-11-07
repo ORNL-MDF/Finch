@@ -4,46 +4,64 @@
 #include <Cajita.hpp>
 #include <Kokkos_Core.hpp>
 
+// Info macro for writing on master
+#define Info                                                                   \
+    if ( comm_rank == 0 )                                                      \
+    std::cout
+
 template <typename MemorySpace>
 class Grid
 {
   public:
-    // Kokkos memory space.
+    // Kokkos memory space
     using memory_space = MemorySpace;
-    // Default Kokkos execution space for this memory space.
+
+    // Default Kokkos execution space for this memory space
     using exec_space = typename MemorySpace::execution_space;
+
     using entity_type = Cajita::Node;
+
     using mesh_type = Cajita::UniformMesh<double>;
+
     using array_type =
         Cajita::Array<double, entity_type, mesh_type, memory_space>;
-    //! MPI rank and number of ranks
+
     int comm_rank, comm_size;
 
+    // Construct from components
     Grid( MPI_Comm comm, const double cell_size,
           std::array<double, 3> global_low_corner,
           std::array<double, 3> global_high_corner,
-          const double initial_temperature )
+          std::array<int, 3> ranks_per_dim, const double initial_temperature )
     {
-        auto global_mesh = Cajita::createUniformGlobalMesh(
-            global_low_corner, global_high_corner, cell_size );
-
         // set up block decomposition
         MPI_Comm_size( comm, &comm_size );
         MPI_Comm_rank( comm, &comm_rank );
 
-        // Create the global grid
-        std::array<int, 3> ranks_per_dim = { comm_size, 1, 1 };
         MPI_Dims_create( comm_size, 3, ranks_per_dim.data() );
         Cajita::ManualBlockPartitioner<3> partitioner( ranks_per_dim );
         std::array<bool, 3> periodic = { false, false, false };
 
+        std::array<int, 3> ranks_per_dim_manual =
+            partitioner.ranksPerDimension( MPI_COMM_WORLD, ranks_per_dim );
+
+        // print the created decomposition
+        Info << "Ranks per dimension: ";
+        for ( int d = 0; d < 3; ++d )
+            Info << ranks_per_dim_manual[d] << " ";
+        Info << std::endl;
+
+        // create global mesh and global grid
+        auto global_mesh = Cajita::createUniformGlobalMesh(
+            global_low_corner, global_high_corner, cell_size );
+
         auto global_grid =
             createGlobalGrid( comm, global_mesh, periodic, partitioner );
 
-        // Create a local grid and local mesh with halo region
+        // create a local grid and local mesh with halo region
         local_grid = Cajita::createLocalGrid( global_grid, halo_width );
 
-        // Create cell array layout for finite difference calculations
+        // create layout for finite difference calculations
         auto layout =
             createArrayLayout( global_grid, halo_width, 1, entity_type() );
 
@@ -55,14 +73,16 @@ class Grid
         // Note: this is an entirely separate array on purpose (no shallow copy)
         T0 = Cajita::createArray<double, memory_space>( name, layout );
 
-        // Create halo
+        // create halo
         halo = createHalo( Cajita::FaceHaloPattern<3>(), halo_width, *T );
 
-        // Create boundaries
+        // create boundaries
         createBoundaries();
 
-        // Initialize boundaries and halo
+        // initialize boundaries
         updateBoundaries();
+
+        // initialize halos
         halo->gather( exec_space{}, *T );
     }
 
@@ -90,7 +110,7 @@ class Grid
 
     void createBoundaries()
     {
-        // Generate the boundary condition index spaces.
+        // generate the boundary condition index spaces.
         int count = 0;
         for ( int d = 0; d < 3; d++ )
         {
@@ -111,7 +131,7 @@ class Grid
 
     void updateBoundaries()
     {
-        // Update the boundary on each face of the cube. Pass the vector of
+        // update the boundary on each face of the cube. Pass the vector of
         // index spaces to avoid launching 6 separate kernels.
         auto T_view = getTemperature();
         auto planes = boundary_planes;
@@ -127,20 +147,24 @@ class Grid
     void gather() { halo->gather( exec_space{}, *T ); }
 
   protected:
-    //! Halo and stencil width;
+    // Halo and stencil width;
     unsigned halo_width = 1;
-    //! Owned grid
+
+    // Owned grid
     std::shared_ptr<Cajita::LocalGrid<Cajita::UniformMesh<double>>> local_grid;
-    //! Halo
+
+    // Halo
     std::shared_ptr<Cajita::Halo<memory_space>> halo;
 
-    //! Temperature field.
+    // Temperature field.
     std::shared_ptr<array_type> T;
-    //! Previous temperature field.
+
+    // Previous temperature field.
     std::shared_ptr<array_type> T0;
 
-    //! Boundary indices for each plane.
+    // Boundary indices for each plane.
     Kokkos::Array<Cajita::IndexSpace<3>, 6> boundary_spaces;
+
     // Boundary details.
     Kokkos::Array<Kokkos::Array<int, 3>, 6> boundary_planes;
 };

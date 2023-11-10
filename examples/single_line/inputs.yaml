@@ -28,3 +28,4 @@ source:
 sampling:
   type: solidification_data
   format: default
+  directory_name: single_line

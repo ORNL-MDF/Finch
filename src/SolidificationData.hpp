@@ -62,7 +62,7 @@ class SolidificationData
         auto tm = Cajita::createArray<double, memory_space>( "tm", layout );
         tm_view = tm->view();
 
-        folder_name = "solidification";
+        folder_name = db.sampling.directory_name;
     }
 
     void updateEvents()

@@ -1,9 +1,18 @@
 #!/bin/bash
 
+while getopts i:o: flag
+do
+    case "${flag}" in
+        i) input_directory=${OPTARG};;
+        o) output_filename=${OPTARG};;
+    esac
+done
+echo "Combining solidification data in: $input_directory";
+
 # Search all files to find first one with data
 file_with_data=""
 
-for file in solidification/*.csv
+for file in ${input_directory}/*.csv
 do
     if [ -f "$file" ]
     then
@@ -25,16 +34,17 @@ fi
 line=$(head -n 1 "$file_with_data")
 nfields=$(echo ${line} | tr -cd , | wc -c)
 
+echo "Creating the combined data file: $output_filename";
 if [ ${nfields} == 8 ]
 then
-   echo "x,y,z,tm,tl,cr,Gx,Gy,Gz" > solidification_data.csv
+   echo "x,y,z,tm,tl,cr,Gx,Gy,Gz" > ${output_filename}
 elif [ ${nfields} == 5 ]
 then
-   echo "x,y,z,tm,tl,cr" > solidification_data.csv
+   echo "x,y,z,tm,tl,cr" > ${output_filename}
 else
    echo "Unknown header format"
    exit 1
 fi
 
-# Append the contents of the processed file to solidification_data.csv
-cat solidification/*csv >> solidification_data.csv
+# Append the contents of the processed file
+cat ${input_directory}/*csv >> ${output_filename}

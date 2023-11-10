@@ -60,6 +60,7 @@ struct Sampling
 {
     std::string type;
     std::string format;
+    std::string directory_name = "solidification";
     bool enabled;
 };
 
@@ -218,6 +219,7 @@ class Simulation
         {
             Info << "  type: " << sampling.type << std::endl;
             Info << "  format:" << sampling.format << std::endl;
+            Info << "  directory name:" << sampling.directory_name << std::endl;
         }
         else
         {
@@ -335,6 +337,12 @@ class Simulation
                 else
                 {
                     sampling.format = "default";
+                }
+
+                if ( db["sampling"]["directory_name"] )
+                {
+                    sampling.directory_name =
+                        db["sampling"]["directory_name"].as<std::string>();
                 }
             }
         }

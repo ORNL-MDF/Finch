@@ -144,17 +144,31 @@ class Simulation
         time.num_steps = static_cast<int>( ( time.end_time - time.start_time ) /
                                            ( time.time_step ) );
 
-        time.output_interval =
-            static_cast<int>( ( time.num_steps / time.total_output_steps ) );
+        // If total_output_steps = 0, print only the final temperature field,
+        // otherwise bound output_interval as larger than 0 but no larger than
+        // the total number of time steps
+        if ( time.total_output_steps == 0 )
+            time.output_interval = time.num_steps;
+        else
+        {
+            time.output_interval = static_cast<int>(
+                ( time.num_steps / time.total_output_steps ) );
+            time.output_interval =
+                std::max( std::min( time.output_interval, time.num_steps ), 1 );
+        }
 
-        time.output_interval =
-            std::max( std::min( time.output_interval, time.num_steps ), 1 );
-
-        time.monitor_interval =
-            static_cast<int>( ( time.num_steps / time.total_monitor_steps ) );
-
-        time.monitor_interval =
-            std::max( std::min( time.monitor_interval, time.num_steps ), 1 );
+        // If total_monitor_steps = 0, do not print time step or current
+        // runtime, otherwise bound monitor_interval as larger than 0 but no
+        // larger than the total number of time steps
+        if ( time.total_monitor_steps == 0 )
+            time.monitor_interval = time.num_steps;
+        else
+        {
+            time.monitor_interval = static_cast<int>(
+                ( time.num_steps / time.total_monitor_steps ) );
+            time.monitor_interval = std::max(
+                std::min( time.monitor_interval, time.num_steps ), 1 );
+        }
 
         // initialize time monitoring
         time_monitor = TimeMonitor( comm, time );

@@ -4,6 +4,8 @@
 #include <Cajita.hpp>
 #include <Kokkos_Core.hpp>
 
+#include <Boundary.hpp>
+
 // Info macro for writing on master
 #define Info                                                                   \
     if ( comm_rank == 0 )                                                      \
@@ -32,7 +34,45 @@ class Grid
     Grid( MPI_Comm comm, const double cell_size,
           std::array<double, 3> global_low_corner,
           std::array<double, 3> global_high_corner,
-          std::array<int, 3> ranks_per_dim, const double initial_temperature )
+          std::array<int, 3> ranks_per_dim, std::array<std::string, 6> bc_types,
+          Kokkos::Array<double, 6> bc_values, const double initial_temperature )
+        : boundary( Boundary( bc_types, bc_values ) )
+    {
+        initialize( comm, cell_size, global_low_corner, global_high_corner,
+                    ranks_per_dim, initial_temperature );
+
+        // Create boundaries
+        boundary.create( local_grid, entity_type{} );
+
+        // Initialize boundaries and halo
+        updateBoundaries();
+        gather();
+    }
+
+    // Constructor where no BC values are needed.
+    Grid( MPI_Comm comm, const double cell_size,
+          std::array<double, 3> global_low_corner,
+          std::array<double, 3> global_high_corner,
+          std::array<int, 3> ranks_per_dim, std::array<std::string, 6> bc_types,
+          const double initial_temperature )
+        : boundary( Boundary( bc_types ) )
+    {
+        initialize( comm, cell_size, global_low_corner, global_high_corner,
+                    ranks_per_dim, initial_temperature );
+
+        // Create boundaries
+        boundary.create( local_grid, entity_type{} );
+
+        // Initialize boundaries and halo
+        updateBoundaries();
+        gather();
+    }
+
+    void initialize( MPI_Comm comm, const double cell_size,
+                     std::array<double, 3> global_low_corner,
+                     std::array<double, 3> global_high_corner,
+                     std::array<int, 3> ranks_per_dim,
+                     const double initial_temperature )
     {
         // set up block decomposition
         MPI_Comm_size( comm, &comm_size );
@@ -75,15 +115,6 @@ class Grid
 
         // create halo
         halo = createHalo( Cajita::FaceHaloPattern<3>(), halo_width, *T );
-
-        // create boundaries
-        createBoundaries();
-
-        // initialize boundaries
-        updateBoundaries();
-
-        // initialize halos
-        halo->gather( exec_space{}, *T );
     }
 
     auto getLocalMesh()
@@ -108,40 +139,10 @@ class Grid
         Cajita::Experimental::BovWriter::writeTimeStep( step, time, *T );
     }
 
-    void createBoundaries()
-    {
-        // generate the boundary condition index spaces.
-        int count = 0;
-        for ( int d = 0; d < 3; d++ )
-        {
-            for ( int dir = -1; dir < 2; dir += 2 )
-            {
-                boundary_planes[count] = { 0, 0, 0 };
-                boundary_planes[count][d] = dir;
-
-                // Get the boundary indices for this plane (each one is a
-                // separate, contiguous index space).
-                boundary_spaces[count] = local_grid->boundaryIndexSpace(
-                    Cajita::Ghost(), entity_type(), boundary_planes[count][0],
-                    boundary_planes[count][1], boundary_planes[count][2] );
-                count++;
-            }
-        }
-    }
-
     void updateBoundaries()
     {
-        // update the boundary on each face of the cube. Pass the vector of
-        // index spaces to avoid launching 6 separate kernels.
         auto T_view = getTemperature();
-        auto planes = boundary_planes;
-        Cajita::grid_parallel_for(
-            "boundary_update", exec_space{}, boundary_spaces,
-            KOKKOS_LAMBDA( const int b, const int i, const int j,
-                           const int k ) {
-                T_view( i, j, k, 0 ) = T_view(
-                    i - planes[b][0], j - planes[b][1], k - planes[b][2], 0 );
-            } );
+        boundary.update( exec_space{}, T_view );
     }
 
     void gather() { halo->gather( exec_space{}, *T ); }
@@ -162,10 +163,7 @@ class Grid
     // Previous temperature field.
     std::shared_ptr<array_type> T0;
 
-    // Boundary indices for each plane.
-    Kokkos::Array<Cajita::IndexSpace<3>, 6> boundary_spaces;
-
-    // Boundary details.
-    Kokkos::Array<Kokkos::Array<int, 3>, 6> boundary_planes;
+    //! Boundary conditions.
+    Boundary boundary;
 };
 #endif

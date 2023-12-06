@@ -120,8 +120,8 @@ class Solver
         double x = T0_( i, j, k, 0 );
 
         double dt_by_rho_cp = ( x >= solidus_ && x <= liquidus_ )
-                                  ? dt_ / ( rho_cp_ )
-                                  : dt_ / ( rho_cp_ + rho_Lf_by_dT_ );
+                                  ? dt_ / ( rho_cp_ + rho_Lf_by_dT_ )
+                                  : dt_ / ( rho_cp_ );
 
         double rhs = laplacian( i, j, k ) + source( tag, i, j, k );
 

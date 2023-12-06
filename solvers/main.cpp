@@ -11,6 +11,7 @@
 #include "MovingBeam/MovingBeam.hpp"
 #include "Simulation.hpp"
 #include "SolidificationData.hpp"
+#include "Solver.hpp"
 
 void run( int argc, char* argv[] )
 {
@@ -34,45 +35,19 @@ void run( int argc, char* argv[] )
         db.space.global_high_corner, db.space.ranks_per_dim, bc_types,
         db.space.initial_temperature );
 
-    auto local_mesh = grid.getLocalMesh();
+    auto owned_space = grid.getIndexSpace();
     using entity_type = typename Grid<memory_space>::entity_type;
-
-    // gaussian heat source parameters
-    double r[3] = { db.source.two_sigma[0] / sqrt( 2.0 ),
-                    db.source.two_sigma[1] / sqrt( 2.0 ),
-                    db.source.two_sigma[2] / sqrt( 2.0 ) };
-
-    double A_inv[3] = { 1.0 / r[0] / r[0], 1.0 / r[1] / r[1],
-                        1.0 / r[2] / r[2] };
-
-    double I0 = ( 2.0 * db.source.absorption ) /
-                ( M_PI * sqrt( M_PI ) * r[0] * r[1] * r[2] );
-
-    // cut off for 3 standard deviations from heat source center
-    double f_max = log( 3 ) + 2 * log( 10 );
 
     // time stepping
     double& time = db.time.time;
-
     int num_steps = db.time.num_steps;
+    double dt = db.time.time_step;
+
+    // Create the solver
+    auto fd = createSolver( db, grid );
 
     // class for storing solidification data
     SolidificationData<memory_space> solidification_data( grid, db );
-
-    // reference to thermophysical properties
-    double dt = db.time.time_step;
-    double dx = db.space.cell_size;
-    double rho = db.properties.density;
-    double cp = db.properties.specific_heat;
-    double Lf = db.properties.latent_heat;
-    double solidus = db.properties.solidus;
-    double liquidus = db.properties.liquidus;
-
-    double rho_cp = rho * cp;
-
-    double rho_cp_Lf = rho * cp + rho * Lf / ( liquidus - solidus );
-
-    double k_by_dx2 = ( db.properties.thermal_conductivity ) / ( dx * dx );
 
     // update the temperature field
     for ( int step = 0; step < num_steps; ++step )
@@ -84,9 +59,9 @@ void run( int argc, char* argv[] )
         // update beam position
         beam.move( time );
         double beam_power = beam.power();
-        double beam_pos_x = beam.position( 0 );
-        double beam_pos_y = beam.position( 1 );
-        double beam_pos_z = beam.position( 2 );
+        double beam_pos[3];
+        for ( std::size_t d = 0; d < 3; ++d )
+            beam_pos[d] = beam.position( d );
 
         // Get temperature views;
         auto T = grid.getTemperature();
@@ -96,53 +71,7 @@ void run( int argc, char* argv[] )
         Kokkos::deep_copy( T0, T );
 
         // Solve finite difference
-        Cajita::grid_parallel_for(
-            "local_grid_for", exec_space(), grid.getIndexSpace(),
-            KOKKOS_LAMBDA( const int i, const int j, const int k ) {
-                double x = T0( i, j, k, 0 );
-
-                // calculate linearized effective specific heat
-                double rho_cp_eff =
-                    ( x >= solidus && x <= liquidus ) ? rho_cp_Lf : rho_cp;
-
-                double dt_by_rho_cp = dt / rho_cp_eff;
-
-                // calculate diffusion term
-                double laplacian =
-                    ( -6.0 * T0( i, j, k, 0 ) + T0( i - 1, j, k, 0 ) +
-                      T0( i + 1, j, k, 0 ) + T0( i, j - 1, k, 0 ) +
-                      T0( i, j + 1, k, 0 ) + T0( i, j, k - 1, 0 ) +
-                      T0( i, j, k + 1, 0 ) ) *
-                    k_by_dx2 * dt_by_rho_cp;
-
-                // calculate heating source term
-                double q_dot = 0.0;
-
-                if ( beam_power )
-                {
-                    double grid_loc[3];
-                    double dist_to_beam[3];
-                    int idx[3] = { i, j, k };
-
-                    local_mesh.coordinates( entity_type(), idx, grid_loc );
-
-                    dist_to_beam[0] = grid_loc[0] - beam_pos_x;
-                    dist_to_beam[1] = grid_loc[1] - beam_pos_y;
-                    dist_to_beam[2] = grid_loc[2] - beam_pos_z;
-
-                    double f =
-                        ( dist_to_beam[0] * dist_to_beam[0] * A_inv[0] ) +
-                        ( dist_to_beam[1] * dist_to_beam[1] * A_inv[1] ) +
-                        ( dist_to_beam[2] * dist_to_beam[2] * A_inv[2] );
-
-                    if ( f < f_max )
-                    {
-                        q_dot = I0 * beam_power * exp( -f ) * dt_by_rho_cp;
-                    }
-                }
-
-                T( i, j, k, 0 ) = T0( i, j, k, 0 ) + laplacian + q_dot;
-            } );
+        fd.solve( exec_space(), owned_space, T, T0, beam_power, beam_pos );
 
         // update boundaries
         grid.updateBoundaries();

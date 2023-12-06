@@ -24,9 +24,11 @@ class Grid
     using entity_type = Cajita::Node;
 
     using mesh_type = Cajita::UniformMesh<double>;
+    using local_mesh_type = Cajita::LocalMesh<memory_space, mesh_type>;
 
     using array_type =
         Cajita::Array<double, entity_type, mesh_type, memory_space>;
+    using view_type = typename array_type::view_type;
 
     int comm_rank, comm_size;
 

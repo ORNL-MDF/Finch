@@ -103,13 +103,13 @@ class Solver
 
         if constexpr ( std::is_same<memory_space, Kokkos::HostSpace>::value )
         {
-            Cajita::grid_parallel_for( "solve", exec_space, owned_space,
-                                       HostTag{}, *this );
+            Cabana::Grid::grid_parallel_for( "solve", exec_space, owned_space,
+                                             HostTag{}, *this );
         }
         else
         {
-            Cajita::grid_parallel_for( "solve", exec_space, owned_space,
-                                       DeviceTag{}, *this );
+            Cabana::Grid::grid_parallel_for( "solve", exec_space, owned_space,
+                                             DeviceTag{}, *this );
         }
     }
 

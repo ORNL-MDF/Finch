@@ -21,13 +21,13 @@ class Grid
     // Default Kokkos execution space for this memory space
     using exec_space = typename MemorySpace::execution_space;
 
-    using entity_type = Cajita::Node;
+    using entity_type = Cabana::Grid::Node;
 
-    using mesh_type = Cajita::UniformMesh<double>;
-    using local_mesh_type = Cajita::LocalMesh<memory_space, mesh_type>;
+    using mesh_type = Cabana::Grid::UniformMesh<double>;
+    using local_mesh_type = Cabana::Grid::LocalMesh<memory_space, mesh_type>;
 
     using array_type =
-        Cajita::Array<double, entity_type, mesh_type, memory_space>;
+        Cabana::Grid::Array<double, entity_type, mesh_type, memory_space>;
     using view_type = typename array_type::view_type;
 
     int comm_rank, comm_size;
@@ -81,7 +81,7 @@ class Grid
         MPI_Comm_rank( comm, &comm_rank );
 
         MPI_Dims_create( comm_size, 3, ranks_per_dim.data() );
-        Cajita::ManualBlockPartitioner<3> partitioner( ranks_per_dim );
+        Cabana::Grid::ManualBlockPartitioner<3> partitioner( ranks_per_dim );
         std::array<bool, 3> periodic = { false, false, false };
 
         std::array<int, 3> ranks_per_dim_manual =
@@ -94,42 +94,43 @@ class Grid
         Info << std::endl;
 
         // create global mesh and global grid
-        auto global_mesh = Cajita::createUniformGlobalMesh(
+        auto global_mesh = Cabana::Grid::createUniformGlobalMesh(
             global_low_corner, global_high_corner, cell_size );
 
         auto global_grid =
             createGlobalGrid( comm, global_mesh, periodic, partitioner );
 
         // create a local grid and local mesh with halo region
-        local_grid = Cajita::createLocalGrid( global_grid, halo_width );
+        local_grid = Cabana::Grid::createLocalGrid( global_grid, halo_width );
 
         // create layout for finite difference calculations
         auto layout =
             createArrayLayout( global_grid, halo_width, 1, entity_type() );
 
         std::string name( "temperature" );
-        T = Cajita::createArray<double, memory_space>( name, layout );
-        Cajita::ArrayOp::assign( *T, initial_temperature, Cajita::Ghost() );
+        T = Cabana::Grid::createArray<double, memory_space>( name, layout );
+        Cabana::Grid::ArrayOp::assign( *T, initial_temperature,
+                                       Cabana::Grid::Ghost() );
 
         // create an array to store previous temperature for explicit udpate
         // Note: this is an entirely separate array on purpose (no shallow copy)
-        T0 = Cajita::createArray<double, memory_space>( name, layout );
+        T0 = Cabana::Grid::createArray<double, memory_space>( name, layout );
 
         // create halo
-        halo = createHalo( Cajita::FaceHaloPattern<3>(), halo_width, *T );
+        halo = createHalo( Cabana::Grid::FaceHaloPattern<3>(), halo_width, *T );
     }
 
     auto getLocalMesh()
     {
-        return Cajita::createLocalMesh<memory_space>( *local_grid );
+        return Cabana::Grid::createLocalMesh<memory_space>( *local_grid );
     }
 
     auto getLocalGrid() { return local_grid; }
 
     auto getIndexSpace()
     {
-        return local_grid->indexSpace( Cajita::Own(), entity_type(),
-                                       Cajita::Local() );
+        return local_grid->indexSpace( Cabana::Grid::Own(), entity_type(),
+                                       Cabana::Grid::Local() );
     }
 
     auto getTemperature() { return T->view(); }
@@ -138,7 +139,7 @@ class Grid
 
     void output( const int step, const double time )
     {
-        Cajita::Experimental::BovWriter::writeTimeStep( step, time, *T );
+        Cabana::Grid::Experimental::BovWriter::writeTimeStep( step, time, *T );
     }
 
     void updateBoundaries()
@@ -154,10 +155,11 @@ class Grid
     unsigned halo_width = 1;
 
     // Owned grid
-    std::shared_ptr<Cajita::LocalGrid<Cajita::UniformMesh<double>>> local_grid;
+    std::shared_ptr<Cabana::Grid::LocalGrid<Cabana::Grid::UniformMesh<double>>>
+        local_grid;
 
     // Halo
-    std::shared_ptr<Cajita::Halo<memory_space>> halo;
+    std::shared_ptr<Cabana::Grid::Halo<memory_space>> halo;
 
     // Temperature field.
     std::shared_ptr<array_type> T;

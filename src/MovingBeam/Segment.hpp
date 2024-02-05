@@ -1,3 +1,14 @@
+/****************************************************************************
+ * Copyright (c) 2024 by Oak Ridge National Laboratory                      *
+ * All rights reserved.                                                     *
+ *                                                                          *
+ * This file is part of Finch. Finch is distributed under a                 *
+ * BSD 3-clause license. For the licensing terms see the LICENSE file in    *
+ * the top-level directory.                                                 *
+ *                                                                          *
+ * SPDX-License-Identifier: BSD-3-Clause                                    *
+ ****************************************************************************/
+
 /*!
   \file moving_beam.hpp
   \brief Class for properties of a moving heat source

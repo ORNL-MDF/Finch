@@ -1,7 +1,7 @@
 #ifndef Boundary_H
 #define Boundary_H
 
-#include <Cajita.hpp>
+#include <Cabana_Grid.hpp>
 #include <Kokkos_Core.hpp>
 
 class Boundary
@@ -60,8 +60,9 @@ class Boundary
                 // Get the boundary indices for this plane (each one is a
                 // separate, contiguous index space).
                 boundary_spaces[count] = local_grid->boundaryIndexSpace(
-                    Cajita::Ghost(), EntityType(), boundary_planes[count][0],
-                    boundary_planes[count][1], boundary_planes[count][2] );
+                    Cabana::Grid::Ghost(), EntityType(),
+                    boundary_planes[count][0], boundary_planes[count][1],
+                    boundary_planes[count][2] );
                 count++;
             }
         }
@@ -76,7 +77,7 @@ class Boundary
         auto planes = boundary_planes;
         auto type = boundary_int;
         auto values = boundary_values;
-        Cajita::grid_parallel_for(
+        Cabana::Grid::grid_parallel_for(
             "boundary_update", exec_space, boundary_spaces,
             KOKKOS_LAMBDA( const int b, const int i, const int j,
                            const int k ) {
@@ -100,7 +101,7 @@ class Boundary
     //! Boundary types for each plane, converted to int for device.
     Kokkos::Array<int, 6> boundary_int;
     //! Boundary indices for each plane.
-    Kokkos::Array<Cajita::IndexSpace<3>, 6> boundary_spaces;
+    Kokkos::Array<Cabana::Grid::IndexSpace<3>, 6> boundary_spaces;
     // Boundary details.
     Kokkos::Array<Kokkos::Array<int, 3>, 6> boundary_planes;
 };

@@ -4,7 +4,7 @@ set(PROJECT_VERSION "0.1.0-dev")
 
 include(GNUInstallDirs)
 
-find_package(Cabana REQUIRED COMPONENTS Cabana::Cajita)
+find_package(Cabana REQUIRED COMPONENTS Cabana::Grid)
 find_package(yaml-cpp REQUIRED)
 
 add_subdirectory(src)

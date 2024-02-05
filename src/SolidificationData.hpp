@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <Cajita.hpp>
+#include <Cabana_Grid.hpp>
 #include <Kokkos_Core.hpp>
 
 #include <Grid.hpp>
@@ -58,8 +58,10 @@ class SolidificationData
 
         auto local_grid = grid.getLocalGrid();
         using entity_type = typename Grid<memory_space>::entity_type;
-        auto layout = Cajita::createArrayLayout( local_grid, 1, entity_type() );
-        auto tm = Cajita::createArray<double, memory_space>( "tm", layout );
+        auto layout =
+            Cabana::Grid::createArrayLayout( local_grid, 1, entity_type() );
+        auto tm =
+            Cabana::Grid::createArray<double, memory_space>( "tm", layout );
         tm_view = tm->view();
 
         folder_name = db.sampling.directory_name;
@@ -86,7 +88,7 @@ class SolidificationData
 
         using entity_type = typename Grid<memory_space>::entity_type;
 
-        Cajita::grid_parallel_for(
+        Cabana::Grid::grid_parallel_for(
             "local_grid_for", exec_space(), grid.getIndexSpace(),
             KOKKOS_LAMBDA( const int i, const int j, const int k ) {
                 double temp = T( i, j, k, 0 );

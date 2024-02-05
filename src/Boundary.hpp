@@ -12,7 +12,7 @@
 #ifndef Boundary_H
 #define Boundary_H
 
-#include <Cajita.hpp>
+#include <Cabana_Grid.hpp>
 #include <Kokkos_Core.hpp>
 
 class Boundary

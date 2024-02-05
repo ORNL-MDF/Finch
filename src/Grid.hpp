@@ -12,7 +12,7 @@
 #ifndef Grid_H
 #define Grid_H
 
-#include <Cajita.hpp>
+#include <Cabana_Grid.hpp>
 #include <Kokkos_Core.hpp>
 
 #include <Boundary.hpp>

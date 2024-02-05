@@ -15,7 +15,6 @@
 #include <mpi.h>
 #include <string>
 
-#include <Cajita.hpp>
 #include <Kokkos_Core.hpp>
 
 #include "Grid.hpp"

@@ -12,7 +12,7 @@
 #ifndef Solver_H
 #define Solver_H
 
-#include <Cajita.hpp>
+#include <Cabana_Grid.hpp>
 #include <Kokkos_Core.hpp>
 
 struct HostTag

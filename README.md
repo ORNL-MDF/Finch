@@ -72,4 +72,4 @@ make -j install
 
 ## License
 
-This code is not yet openly released. It is planned to be distributed under an open source 3-clause BSD license.
+Finch is distributed under an [open source 3-clause BSD license](LICENSE).

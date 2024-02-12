@@ -1,3 +1,6 @@
+file(GLOB SCANPATH_HEADERS GLOB *.hpp)
+file(GLOB SCANPATH_SOURCE GLOB CreateScanPaths.cpp)
+
 add_library(ScanPaths INTERFACE)
 add_library(Finch::ScanPaths ALIAS ScanPaths)
 
@@ -14,9 +17,9 @@ install(TARGETS ScanPaths
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-add_executable(create_scan_paths CreateScanPaths.cpp)
+add_executable(create_scan_paths ${SCANPATH_SOURCE})
 target_link_libraries(create_scan_paths ScanPaths)
 
 install(TARGETS create_scan_paths DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-install(FILES CreateScanPaths.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES ${SCANPATH_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

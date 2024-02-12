@@ -19,8 +19,6 @@
 #include <unistd.h>
 #include <vector>
 
-#include "yaml-cpp/yaml.h"
-
 struct Point
 {
     double x;

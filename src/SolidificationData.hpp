@@ -23,7 +23,7 @@
 #include <Kokkos_Core.hpp>
 
 #include <Grid.hpp>
-#include <Simulation.hpp>
+#include <Inputs.hpp>
 
 template <typename MemorySpace>
 class SolidificationData
@@ -36,7 +36,7 @@ class SolidificationData
 
   private:
     Grid<memory_space>& grid;
-    const Simulation& db;
+    const Inputs& db;
 
     view_int count;
 
@@ -52,7 +52,7 @@ class SolidificationData
 
   public:
     // constructor
-    SolidificationData( Grid<memory_space>& grid, Simulation& db )
+    SolidificationData( Grid<memory_space>& grid, Inputs& db )
         : grid( grid )
         , db( db )
     {

@@ -3,7 +3,7 @@ file(GLOB CORE_HEADERS GLOB *.hpp MovingBeam/*.hpp)
 file(GLOB CORE_SOURCE *.cpp MovingBeam/*.cpp)
 
 add_library(Core ${CORE_SOURCE})
-target_link_libraries(Core Cabana::Grid yaml-cpp::yaml-cpp)
+target_link_libraries(Core Cabana::Grid nlohmann_json::nlohmann_json)
 
 target_include_directories(Core PUBLIC
                            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

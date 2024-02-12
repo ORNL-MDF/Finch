@@ -8,4 +8,4 @@ FINCH_DIR=`pwd`/../..
 application=$FINCH_DIR/build/install/bin/create_scan_paths
 
 # run application
-$application -i inputs.yaml
+$application -i inputs.json

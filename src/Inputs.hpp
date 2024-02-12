@@ -9,16 +9,17 @@
  * SPDX-License-Identifier: BSD-3-Clause                                    *
  ****************************************************************************/
 
-#ifndef Simulation_H
-#define Simulation_H
+#ifndef Inputs_H
+#define Inputs_H
 
-#include "yaml-cpp/yaml.h"
 #include <array>
 #include <chrono>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <unistd.h>
+
+#include <nlohmann/json.hpp>
 
 // Info macro for writing on master
 #define Info                                                                   \
@@ -118,7 +119,7 @@ struct TimeMonitor
     }
 };
 
-class Simulation
+class Inputs
 {
   public:
     Time time;
@@ -132,7 +133,7 @@ class Simulation
     int comm_size;
 
     // constructor
-    Simulation( MPI_Comm comm, int argc, char* argv[] )
+    Inputs( MPI_Comm comm, int argc, char* argv[] )
     {
         MPI_Comm_rank( comm, &comm_rank );
         MPI_Comm_size( comm, &comm_size );
@@ -266,111 +267,98 @@ class Simulation
             }
             else
             {
-                std::cerr << "Usage: " << argv[0] << " -i <input_yaml_file>"
+                std::cerr << "Usage: " << argv[0] << " -i <input_json_file>"
                           << std::endl;
                 return;
             }
         }
 
         // parse input file
+        std::ifstream db_stream( filename );
+        nlohmann::json db = nlohmann::json::parse( db_stream );
+
+        // Read time components
+        time.Co = db["time"]["Co"];
+        time.start_time = db["time"]["start_time"];
+        time.end_time = db["time"]["end_time"];
+        time.total_output_steps = db["time"]["total_output_steps"];
+        time.total_monitor_steps = db["time"]["total_monitor_steps"];
+
+        // Read space components
+        space.initial_temperature = db["space"]["initial_temperature"];
+        space.cell_size = db["space"]["cell_size"];
+        space.global_low_corner = db["space"]["global_low_corner"];
+        space.global_high_corner = db["space"]["global_high_corner"];
+
+        /*
+          Default block partitioner. This relies on MPI_Cart_create to
+          balance the number of ranks in each direction. This partitioning
+          is best only in the global mesh is a uniform cube.
+        */
+        std::array<int, 3> default_ranks_per_dim = { 0, 0, 0 };
+
+        std::array<int, 3> ranks_per_dim = default_ranks_per_dim;
+        if ( db["space"].contains( "ranks_per_dim" ) )
+            ranks_per_dim = ranks_per_dim = db["space"]["ranks_per_dim"];
+
+        // Invalid partition strategy selected. Use Default block partioner.
+        int product = ranks_per_dim[0] * ranks_per_dim[1] * ranks_per_dim[2];
+
+        if ( product != comm_size )
         {
-            YAML::Node db = YAML::LoadFile( filename );
+            ranks_per_dim = default_ranks_per_dim;
+        }
 
-            // Read time components
-            time.Co = db["time"]["Co"].as<double>();
-            time.start_time = db["time"]["start_time"].as<double>();
-            time.end_time = db["time"]["end_time"].as<double>();
-            time.total_output_steps =
-                db["time"]["total_output_steps"].as<int>();
-            time.total_monitor_steps =
-                db["time"]["total_monitor_steps"].as<int>();
+        space.ranks_per_dim = ranks_per_dim;
 
-            // Read space components
-            space.initial_temperature =
-                db["space"]["initial_temperature"].as<double>();
-            space.cell_size = db["space"]["cell_size"].as<double>();
-            space.global_low_corner =
-                db["space"]["global_low_corner"].as<std::array<double, 3>>();
-            space.global_high_corner =
-                db["space"]["global_high_corner"].as<std::array<double, 3>>();
+        // Read properties components
+        properties.density = db["properties"]["density"];
+        properties.specific_heat = db["properties"]["specific_heat"];
+        properties.thermal_conductivity =
+            db["properties"]["thermal_conductivity"];
+        properties.latent_heat = db["properties"]["latent_heat"];
+        properties.solidus = db["properties"]["solidus"];
+        properties.liquidus = db["properties"]["liquidus"];
 
-            /*
-              Default block partitioner. This relies on MPI_Cart_create to
-              balance the number of ranks in each direction. This partitioning
-              is best only in the global mesh is a uniform cube.
-            */
-            std::array<int, 3> default_ranks_per_dim = { 0, 0, 0 };
+        // Read heat source components
+        source.absorption = db["source"]["absorption"];
+        source.two_sigma = db["source"]["two_sigma"];
 
-            std::array<int, 3> ranks_per_dim =
-                db["space"]["ranks_per_dim"].as<std::array<int, 3>>(
-                    default_ranks_per_dim );
+        source.two_sigma[0] = fabs( source.two_sigma[0] );
+        source.two_sigma[1] = fabs( source.two_sigma[1] );
+        source.two_sigma[2] = fabs( source.two_sigma[2] );
 
-            // Invalid partition strategy selected. Use Default block partioner.
-            int product =
-                ranks_per_dim[0] * ranks_per_dim[1] * ranks_per_dim[2];
+        source.scan_path_file = db["source"]["scan_path_file"];
 
-            if ( product != comm_size )
+        // Read sampling components
+        sampling.enabled = false;
+        if ( db.contains( "sampling" ) )
+        {
+            const std::string sampling_type = db["sampling"]["type"];
+
+            if ( sampling_type == "solidification_data" )
             {
-                ranks_per_dim = default_ranks_per_dim;
+                sampling.type = sampling_type;
+                sampling.enabled = true;
             }
 
-            space.ranks_per_dim = ranks_per_dim;
+            const std::string sampling_format = db["sampling"]["format"];
 
-            // Read properties components
-            properties.density = db["properties"]["density"].as<double>();
-            properties.specific_heat =
-                db["properties"]["specific_heat"].as<double>();
-            properties.thermal_conductivity =
-                db["properties"]["thermal_conductivity"].as<double>();
-            properties.latent_heat =
-                db["properties"]["latent_heat"].as<double>();
-            properties.solidus = db["properties"]["solidus"].as<double>();
-            properties.liquidus = db["properties"]["liquidus"].as<double>();
-
-            // Read heat source components
-            source.absorption = db["source"]["absorption"].as<double>();
-            source.two_sigma =
-                db["source"]["two_sigma"].as<std::array<double, 3>>();
-
-            source.two_sigma[0] = fabs( source.two_sigma[0] );
-            source.two_sigma[1] = fabs( source.two_sigma[1] );
-            source.two_sigma[2] = fabs( source.two_sigma[2] );
-
-            source.scan_path_file =
-                db["source"]["scan_path_file"].as<std::string>();
-
-            // Read sampling components
-            sampling.enabled = false;
-            if ( db["sampling"] )
+            if ( sampling_format == "exaca" )
             {
-                const std::string sampling_type =
-                    db["sampling"]["type"].as<std::string>();
+                sampling.format = sampling_format;
+            }
+            else
+            {
+                sampling.format = "default";
+            }
 
-                if ( sampling_type == "solidification_data" )
-                {
-                    sampling.type = sampling_type;
-                    sampling.enabled = true;
-                }
-
-                const std::string sampling_format =
-                    db["sampling"]["format"].as<std::string>();
-
-                if ( sampling_format == "exaca" )
-                {
-                    sampling.format = sampling_format;
-                }
-                else
-                {
-                    sampling.format = "default";
-                }
-
-                if ( db["sampling"]["directory_name"] )
-                {
-                    sampling.directory_name =
-                        db["sampling"]["directory_name"].as<std::string>();
-                }
+            if ( db["sampling"].contains( "directory_name" ) )
+            {
+                sampling.directory_name = db["sampling"]["directory_name"];
             }
         }
     }
 };
+
 #endif

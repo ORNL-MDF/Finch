@@ -19,7 +19,7 @@
 #include <unistd.h>
 #include <vector>
 
-#include "yaml-cpp/yaml.h"
+#include <nlohmann/json.hpp>
 
 #include "CreateScanPaths.hpp"
 
@@ -37,34 +37,36 @@ int main( int argc, char* argv[] )
         }
         else
         {
-            std::cerr << "Usage: " << argv[0] << " -i <input_yaml_file>"
+            std::cerr << "Usage: " << argv[0] << " -i <input_json_file>"
                       << std::endl;
             return 0;
         }
     }
 
-    YAML::Node config = YAML::LoadFile( filename );
+    // parse input file
+    std::ifstream config_stream( filename );
+    nlohmann::json config = nlohmann::json::parse( config_stream );
 
     Point minPoint;
-    minPoint.x = config["min_point"][0].as<double>();
-    minPoint.y = config["min_point"][1].as<double>();
+    minPoint.x = config["min_point"][0];
+    minPoint.y = config["min_point"][1];
 
     Point maxPoint;
-    maxPoint.x = config["max_point"][0].as<double>();
-    maxPoint.y = config["max_point"][1].as<double>();
+    maxPoint.x = config["max_point"][0];
+    maxPoint.y = config["max_point"][1];
 
-    double angle = config["angle"].as<double>();
-    double hatch = config["hatch"].as<double>();
-    int num_rotations = config["num_rotations"].as<int>();
+    double angle = config["angle"];
+    double hatch = config["hatch"];
+    int num_rotations = config["num_rotations"];
 
-    double power = config["power"].as<double>();
-    double speed = config["speed"].as<double>();
-    double dwell_time = config["dwell_time"].as<double>();
+    double power = config["power"];
+    double speed = config["speed"];
+    double dwell_time = config["dwell_time"];
 
     bool bi_direction = true;
     if ( config["bi_direction"] )
     {
-        bi_direction = config["bi_direction"].as<bool>();
+        bi_direction = config["bi_direction"];
     }
 
     // Create bounding box for scan vectors

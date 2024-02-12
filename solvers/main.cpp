@@ -18,8 +18,8 @@
 #include <Kokkos_Core.hpp>
 
 #include "Grid.hpp"
+#include "Inputs.hpp"
 #include "MovingBeam/MovingBeam.hpp"
-#include "Simulation.hpp"
 #include "SolidificationData.hpp"
 #include "Solver.hpp"
 
@@ -29,7 +29,7 @@ void run( int argc, char* argv[] )
     using memory_space = exec_space::memory_space;
 
     // initialize the simulation
-    Simulation db( MPI_COMM_WORLD, argc, argv );
+    Inputs db( MPI_COMM_WORLD, argc, argv );
 
     // initialize a moving beam
     MovingBeam beam( db.source.scan_path_file );

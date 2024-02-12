@@ -49,7 +49,7 @@ class Solver
     double w_max_;
 
   public:
-    Solver( Simulation db, LocalMeshType local_mesh )
+    Solver( Inputs db, LocalMeshType local_mesh )
         : local_mesh_( local_mesh )
         , power_( 0.0 )
     {
@@ -219,7 +219,7 @@ class Solver
 
 // Create a solver based on the grid details and simulation inputs.
 template <typename MemorySpace>
-auto createSolver( Simulation db, Grid<MemorySpace> grid )
+auto createSolver( Inputs db, Grid<MemorySpace> grid )
 {
     using entity_type = typename Grid<MemorySpace>::entity_type;
     using view_type = typename Grid<MemorySpace>::view_type;

@@ -8,7 +8,7 @@ FINCH_DIR=`pwd`/../..
 application=$FINCH_DIR/build/install/bin/finch
 
 # run application
-mpirun -np 8 $application -i inputs.yaml
+mpirun -np 4 $application -i inputs.json
 
 # create solidification data file
 postprocess=$FINCH_DIR/utilities/combine_solidification_data.sh

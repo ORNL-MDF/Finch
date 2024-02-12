@@ -11,3 +11,5 @@ Cabana/
 # Output files
 *.bov
 *.dat
+*.csv
+path*.txt

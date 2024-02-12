@@ -3,6 +3,8 @@ file(GLOB CORE_HEADERS GLOB *.hpp MovingBeam/*.hpp)
 file(GLOB CORE_SOURCE *.cpp MovingBeam/*.cpp)
 
 add_library(Core ${CORE_SOURCE})
+add_library(Finch::Core ALIAS Core)
+
 target_link_libraries(Core Cabana::Grid nlohmann_json::nlohmann_json)
 
 target_include_directories(Core PUBLIC

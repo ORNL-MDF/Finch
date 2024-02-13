@@ -1,19 +1,18 @@
 file(GLOB CORE_HEADERS GLOB *.hpp MovingBeam/*.hpp)
-
 file(GLOB CORE_SOURCE *.cpp MovingBeam/*.cpp)
 
-add_library(Core ${CORE_SOURCE})
-add_library(Finch::Core ALIAS Core)
+add_library(FinchCore ${CORE_SOURCE})
+add_library(Finch::Core ALIAS FinchCore)
 
-target_link_libraries(Core Cabana::Grid nlohmann_json::nlohmann_json)
+target_link_libraries(FinchCore Cabana::Grid nlohmann_json::nlohmann_json)
 
-target_include_directories(Core PUBLIC
+target_include_directories(FinchCore PUBLIC
                            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                            $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
                            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
-install(TARGETS Core DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS FinchCore DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-install(TARGETS Core
+install(TARGETS FinchCore
   EXPORT Finch_Targets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})

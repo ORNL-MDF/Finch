@@ -46,7 +46,8 @@ make -j install
 popd
 popd
 
-# The json library for input parsing will be automatically downloaded and included in the Finch build. It can also be built externally and included in the same manner as Cabana if needed.
+# The json library for input parsing will be automatically downloaded and included in the Finch build. 
+# It can also be built externally and included in the same manner as Cabana if needed.
 
 # Finally, build Finch
 mkdir build
@@ -58,6 +59,12 @@ cmake \
   .. ;
 make -j install
 ```
+
+## Run Finch
+
+The main Finch examples can be run with the scripts provided in `examples/`.
+
+This includes generating a scan path (`create_scan_path/`) and simulating the heat transfer for a simple path (`single_line/`).
 
 ## License
 

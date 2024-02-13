@@ -29,10 +29,10 @@ void run( int argc, char* argv[] )
     using memory_space = exec_space::memory_space;
 
     // initialize the simulation
-    Inputs db( MPI_COMM_WORLD, argc, argv );
+    Finch::Inputs db( MPI_COMM_WORLD, argc, argv );
 
     // initialize a moving beam
-    MovingBeam beam( db.source.scan_path_file );
+    Finch::MovingBeam beam( db.source.scan_path_file );
 
     // Define boundary condition details.
     std::array<std::string, 6> bc_types = { "adiabatic", "adiabatic",
@@ -40,7 +40,7 @@ void run( int argc, char* argv[] )
                                             "adiabatic", "adiabatic" };
 
     // create the global mesh
-    Grid<memory_space> grid(
+    Finch::Grid<memory_space> grid(
         MPI_COMM_WORLD, db.space.cell_size, db.space.global_low_corner,
         db.space.global_high_corner, db.space.ranks_per_dim, bc_types,
         db.space.initial_temperature );
@@ -53,10 +53,10 @@ void run( int argc, char* argv[] )
     double dt = db.time.time_step;
 
     // Create the solver
-    auto fd = createSolver( db, grid );
+    auto fd = Finch::createSolver( db, grid );
 
     // class for storing solidification data
-    SolidificationData<memory_space> solidification_data( grid, db );
+    Finch::SolidificationData<memory_space> solidification_data( grid, db );
 
     // update the temperature field
     for ( int step = 0; step < num_steps; ++step )

@@ -22,6 +22,9 @@
 
 #include <Finch_Boundary.hpp>
 
+namespace Finch
+{
+
 // Info macro for writing on master
 #define Info                                                                   \
     if ( comm_rank == 0 )                                                      \
@@ -186,4 +189,7 @@ class Grid
     //! Boundary conditions.
     Boundary boundary;
 };
+
+} // namespace Finch
+
 #endif

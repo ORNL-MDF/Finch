@@ -15,6 +15,9 @@
 #include <Cabana_Grid.hpp>
 #include <Kokkos_Core.hpp>
 
+namespace Finch
+{
+
 class Boundary
 {
   public:
@@ -116,4 +119,6 @@ class Boundary
     // Boundary details.
     Kokkos::Array<Kokkos::Array<int, 3>, 6> boundary_planes;
 };
+} // namespace Finch
+
 #endif

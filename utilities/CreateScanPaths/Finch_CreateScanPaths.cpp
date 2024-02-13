@@ -21,7 +21,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "CreateScanPaths.hpp"
+#include "Finch_CreateScanPaths.hpp"
 
 int main( int argc, char* argv[] )
 {

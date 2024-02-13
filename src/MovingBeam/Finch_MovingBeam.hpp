@@ -17,7 +17,7 @@
 #ifndef MovingBeam_H
 #define MovingBeam_H
 
-#include "MovingBeam/Segment.hpp"
+#include "MovingBeam/Finch_Segment.hpp"
 
 #include <vector>
 

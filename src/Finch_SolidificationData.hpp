@@ -28,8 +28,8 @@
 #include <Cabana_Grid.hpp>
 #include <Kokkos_Core.hpp>
 
-#include <Grid.hpp>
-#include <Inputs.hpp>
+#include <Finch_Grid.hpp>
+#include <Finch_Inputs.hpp>
 
 template <typename MemorySpace>
 class SolidificationData

@@ -13,7 +13,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "Segment.hpp"
+#include "Finch_Segment.hpp"
 
 void Segment::setTime( double time ) { time_ = time; }
 

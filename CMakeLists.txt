@@ -23,5 +23,5 @@ if(NOT NLOHMANN_JSON_FOUND)
 endif()
 
 add_subdirectory(src)
-add_subdirectory(solvers)
+add_subdirectory(applications)
 add_subdirectory(utilities)

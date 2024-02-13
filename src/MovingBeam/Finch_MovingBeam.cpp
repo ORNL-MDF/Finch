@@ -15,7 +15,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "MovingBeam.hpp"
+#include "Finch_MovingBeam.hpp"
 
 // a small floating point value used for consistent path update logic
 const double MovingBeam::eps = 1e-10;

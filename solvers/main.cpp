@@ -46,7 +46,6 @@ void run( int argc, char* argv[] )
         db.space.initial_temperature );
 
     auto owned_space = grid.getIndexSpace();
-    using entity_type = typename Grid<memory_space>::entity_type;
 
     // time stepping
     double& time = db.time.time;

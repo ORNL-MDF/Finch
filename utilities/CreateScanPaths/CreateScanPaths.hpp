@@ -271,9 +271,6 @@ struct Path
     // Function to find the number of scan vectors in the bounding box
     int numberOfLines( const boundBox& bbox, double step ) const
     {
-        double rangeX = bbox.maxPoint.x - bbox.minPoint.x;
-        double rangeY = bbox.maxPoint.y - bbox.minPoint.y;
-
         int nX = 0;
         int nY = 0;
 

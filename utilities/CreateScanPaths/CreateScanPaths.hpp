@@ -9,6 +9,11 @@
  * SPDX-License-Identifier: BSD-3-Clause                                    *
  ****************************************************************************/
 
+/*!
+  \file CreateScanPaths.hpp
+  \brief Define the scan path strategy for additive manufacturing
+*/
+
 #include <algorithm>
 #include <cmath>
 #include <fstream>

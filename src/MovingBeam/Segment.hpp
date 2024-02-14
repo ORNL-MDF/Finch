@@ -10,8 +10,8 @@
  ****************************************************************************/
 
 /*!
-  \file moving_beam.hpp
-  \brief Class for properties of a moving heat source
+  \file Segment.hpp
+  \brief Class for properties of a single segment of a moving heat source
 */
 
 #ifndef Segment_H

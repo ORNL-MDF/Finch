@@ -9,6 +9,11 @@
  * SPDX-License-Identifier: BSD-3-Clause                                    *
  ****************************************************************************/
 
+/*!
+  \file Simulation.hpp
+  \brief Simulation inputs
+*/
+
 #ifndef Inputs_H
 #define Inputs_H
 

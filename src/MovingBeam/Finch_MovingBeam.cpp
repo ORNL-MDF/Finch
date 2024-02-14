@@ -15,10 +15,10 @@
 #include <iostream>
 #include <sstream>
 
-#include "MovingBeam.hpp"
+#include "Finch_MovingBeam.hpp"
 
-// a small floating point value used for consistent path update logic
-const double MovingBeam::eps = 1e-10;
+namespace Finch
+{
 
 MovingBeam::MovingBeam( const std::string scan_path_file )
     : path( 1, Segment() )
@@ -170,3 +170,5 @@ int MovingBeam::findIndex( const double time )
 
     return std::min( std::max( i, 0 ), n );
 }
+
+} // namespace Finch

@@ -13,7 +13,10 @@
 #include <iostream>
 #include <sstream>
 
-#include "Segment.hpp"
+#include "Finch_Segment.hpp"
+
+namespace Finch
+{
 
 void Segment::setTime( double time ) { time_ = time; }
 
@@ -39,3 +42,5 @@ Segment::Segment( std::string line )
     lineStream >> mode_ >> position_[0] >> position_[1] >> position_[2] >>
         power_ >> parameter_;
 }
+
+} // namespace Finch

@@ -26,6 +26,9 @@
 
 #include <nlohmann/json.hpp>
 
+namespace Finch
+{
+
 // Info macro for writing on master
 #define Info                                                                   \
     if ( comm_rank == 0 )                                                      \
@@ -365,5 +368,7 @@ class Inputs
         }
     }
 };
+
+} // namespace Finch
 
 #endif

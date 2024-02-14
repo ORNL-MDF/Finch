@@ -24,6 +24,9 @@
 #include <unistd.h>
 #include <vector>
 
+namespace Finch
+{
+
 struct Point
 {
     double x;
@@ -333,3 +336,5 @@ struct Path
         file.close();
     }
 };
+
+} // namespace Finch

@@ -20,7 +20,10 @@
 #include <Cabana_Grid.hpp>
 #include <Kokkos_Core.hpp>
 
-#include <Boundary.hpp>
+#include <Finch_Boundary.hpp>
+
+namespace Finch
+{
 
 // Info macro for writing on master
 #define Info                                                                   \
@@ -186,4 +189,7 @@ class Grid
     //! Boundary conditions.
     Boundary boundary;
 };
+
+} // namespace Finch
+
 #endif

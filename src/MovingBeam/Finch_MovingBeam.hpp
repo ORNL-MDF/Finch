@@ -17,9 +17,12 @@
 #ifndef MovingBeam_H
 #define MovingBeam_H
 
-#include "MovingBeam/Segment.hpp"
+#include "MovingBeam/Finch_Segment.hpp"
 
 #include <vector>
+
+namespace Finch
+{
 
 class MovingBeam
 {
@@ -43,7 +46,7 @@ class MovingBeam
     double endTime_;
 
     //! tolerance for scan path intervals
-    static const double eps;
+    static constexpr double eps = 1e-10;
 
   public:
     //! Default constructor
@@ -79,5 +82,7 @@ class MovingBeam
     //! Return current power of the moving beam
     double power() const { return power_; }
 };
+
+} // namespace Finch
 
 #endif

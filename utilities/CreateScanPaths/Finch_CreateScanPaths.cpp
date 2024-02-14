@@ -21,7 +21,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "CreateScanPaths.hpp"
+#include "Finch_CreateScanPaths.hpp"
 
 int main( int argc, char* argv[] )
 {
@@ -47,11 +47,11 @@ int main( int argc, char* argv[] )
     std::ifstream config_stream( filename );
     nlohmann::json config = nlohmann::json::parse( config_stream );
 
-    Point minPoint;
+    Finch::Point minPoint;
     minPoint.x = config["min_point"][0];
     minPoint.y = config["min_point"][1];
 
-    Point maxPoint;
+    Finch::Point maxPoint;
     maxPoint.x = config["max_point"][0];
     maxPoint.y = config["max_point"][1];
 
@@ -70,7 +70,7 @@ int main( int argc, char* argv[] )
     }
 
     // Create bounding box for scan vectors
-    boundBox boundingBox( minPoint, maxPoint );
+    Finch::boundBox boundingBox( minPoint, maxPoint );
 
     // Rotate and write scan vectors to file
     double rotation = 0.0;
@@ -78,7 +78,7 @@ int main( int argc, char* argv[] )
     for ( int i = 0; i < num_rotations; ++i )
     {
         // create new path
-        Path path( boundingBox, hatch, rotation );
+        Finch::Path path( boundingBox, hatch, rotation );
         path.power = power;
         path.speed = speed;
         path.dwell_time = dwell_time;

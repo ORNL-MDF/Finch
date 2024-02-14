@@ -20,6 +20,9 @@
 #include <string>
 #include <vector>
 
+namespace Finch
+{
+
 class Segment
 {
   private:
@@ -60,5 +63,7 @@ class Segment
 
     double time() { return time_; }
 };
+
+} // namespace Finch
 
 #endif

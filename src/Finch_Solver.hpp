@@ -20,6 +20,9 @@
 #include <Cabana_Grid.hpp>
 #include <Kokkos_Core.hpp>
 
+namespace Finch
+{
+
 struct HostTag
 {
 };
@@ -234,5 +237,7 @@ auto createSolver( Inputs db, Grid<MemorySpace> grid )
 
     return Solver<view_type, entity_type, mesh_type>( db, local_mesh );
 }
+
+} // namespace Finch
 
 #endif

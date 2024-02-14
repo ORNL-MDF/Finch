@@ -9,6 +9,11 @@
  * SPDX-License-Identifier: BSD-3-Clause                                    *
  ****************************************************************************/
 
+/*!
+  \file Solver.hpp
+  \brief Main class for heat transport solve
+*/
+
 #ifndef Solver_H
 #define Solver_H
 

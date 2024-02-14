@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 /*!
-  \file moving_beam.hpp
+  \file MovingBeam.hpp
   \brief Class for moving beam heat source used in additive manufacturing
 */
 

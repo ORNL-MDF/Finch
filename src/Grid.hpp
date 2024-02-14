@@ -9,6 +9,11 @@
  * SPDX-License-Identifier: BSD-3-Clause                                    *
  ****************************************************************************/
 
+/*!
+  \file Grid.hpp
+  \brief Background grid on which to solve heat transport
+*/
+
 #ifndef Grid_H
 #define Grid_H
 

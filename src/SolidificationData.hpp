@@ -9,6 +9,12 @@
  * SPDX-License-Identifier: BSD-3-Clause                                    *
  ****************************************************************************/
 
+/*!
+  \file SolidificationData.hpp
+  \brief Class to output solidification information (e.g. for later
+  microstructure) simulation
+*/
+
 #ifndef SolidificationData_H
 #define SolidificationData_H
 

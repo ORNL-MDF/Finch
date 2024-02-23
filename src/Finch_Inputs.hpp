@@ -307,7 +307,7 @@ class Inputs
 
         std::array<int, 3> ranks_per_dim = default_ranks_per_dim;
         if ( db["space"].contains( "ranks_per_dim" ) )
-            ranks_per_dim = ranks_per_dim = db["space"]["ranks_per_dim"];
+            ranks_per_dim = db["space"]["ranks_per_dim"];
 
         // Invalid partition strategy selected. Use Default block partioner.
         int product = ranks_per_dim[0] * ranks_per_dim[1] * ranks_per_dim[2];

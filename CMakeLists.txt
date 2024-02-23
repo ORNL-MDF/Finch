@@ -4,7 +4,7 @@ set(PROJECT_VERSION "0.1.0-dev")
 
 include(GNUInstallDirs)
 
-find_package(Cabana REQUIRED COMPONENTS Cabana::Grid)
+find_package(Cabana 0.6.1 REQUIRED COMPONENTS Cabana::Grid)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
   cmake_policy(SET CMP0135 NEW)

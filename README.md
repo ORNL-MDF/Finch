@@ -11,8 +11,8 @@ Finite difference heat transfer using Cabana for additive manufacturing
 |[json](https://github.com/nlohmann/json)     | 3.10+   | Yes | Input files
 
 
-## Build
-Building Finch requires Cabana, Kokkos (a Cabana dependency), and json (for input files). A simple example for building on CPU is shown below.
+## Build Finch
+Building Finch requires Cabana, Kokkos & MPI (Cabana dependencies), and json (for input files). A simple example for building on CPU is shown below.
 
 ```
 # First build Kokkos.
@@ -35,9 +35,10 @@ export CABANA_DIR=$HOME/Cabana
 pushd $CABANA_DIR
 mkdir build
 pushd build
+# Note that Finch requires the Cabana::Grid sub-package, which requires MPI.
 cmake \
     -D CMAKE_PREFIX_PATH=$KOKKOS_DIR/build/install \
-    -D Cabana_REQUIRE_HDF5=OFF \
+    -D Cabana_ENABLE_GRID=ON \
     -D CMAKE_INSTALL_PREFIX=install \
     -D CMAKE_BUILD_TYPE="Release" \
     .. ;
@@ -45,7 +46,8 @@ make -j install
 popd
 popd
 
-# The json library for input parsing will be automatically downloaded and included in the Finch build. It can also be built externally and included in the same manner as Cabana if needed.
+# The json library for input parsing will be automatically downloaded and included in the Finch build. 
+# It can also be built externally and included in the same manner as Cabana if needed.
 
 # Finally, build Finch
 mkdir build
@@ -57,6 +59,12 @@ cmake \
   .. ;
 make -j install
 ```
+
+## Run Finch
+
+The main Finch examples can be run with the scripts provided in `examples/`.
+
+This includes generating a scan path (`create_scan_path/`) and simulating the heat transfer for a simple path (`single_line/`).
 
 ## License
 

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 project(Finch LANGUAGES CXX C)
-set(PROJECT_VERSION "0.1.0-dev")
+set(PROJECT_VERSION "0.2.0-dev")
 
 include(GNUInstallDirs)
 

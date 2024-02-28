@@ -4,7 +4,7 @@
     "Co": 0.125,
     "start_time": 0.0,
     "end_time": 0.0015,
-    "total_output_steps": 10,
+    "total_output_steps": 2,
     "total_monitor_steps": 10
   },
   "space":

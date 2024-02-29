@@ -1,0 +1,234 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+concurrency:
+  group: ${ {github.event_name }}-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{github.event_name == 'pull_request'}}
+jobs:
+  CI:
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      matrix:
+        distro: ['ubuntu:latest']
+        cxx: ['g++', 'clang++']
+        backend: ['SERIAL', 'OPENMP']
+        cmake_build_type: ['Debug', 'Release']
+        kokkos_ver: ['4.1.00']
+        json: ['Internal']
+        include:
+          - distro: 'ubuntu:intel'
+            cxx: 'icpx'
+            backend: 'SERIAL'
+            cmake_build_type: 'Release'
+            kokkos_ver: '4.1.00'
+            json: External
+          - distro: 'ubuntu:intel'
+            cxx: 'icpx'
+            backend: 'OPENMP'
+            cmake_build_type: 'Release'
+            kokkos_ver: '4.1.00'
+            json: External
+    runs-on: ubuntu-20.04
+    container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
+    continue-on-error: ${{ matrix.distro == 'ubuntu:intel' }}
+    steps:
+      - name: Checkout json
+        if: ${{ matrix.json == 'External' }}
+        uses: actions/checkout@v3
+        with:
+          repository: nlohmann/json
+          ref: v3.11.2
+          path: json
+      - name: Build json
+        if: ${{ matrix.json == 'External' }}
+        working-directory: json
+        run: |
+          cmake -B build \
+            -D CMAKE_INSTALL_PREFIX=$HOME/json \
+            -D CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -D JSON_BuildTests=OFF
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Checkout kokkos
+        uses: actions/checkout@v3
+        with:
+          repository: kokkos/kokkos
+          ref: ${{ matrix.kokkos_ver }}
+          path: kokkos
+      - name: Build kokkos
+        working-directory: kokkos
+        run: |
+          cmake -B build \
+            -D CMAKE_INSTALL_PREFIX=$HOME/kokkos \
+            -D Kokkos_ENABLE_${{ matrix.backend }}=ON \
+            -D CMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -D Kokkos_ENABLE_HWLOC=ON \
+            -D CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Checkout Cabana
+        uses: actions/checkout@v3
+        with:
+          repository: ECP-CoPA/Cabana
+          ref: 0.6.1
+          path: cabana
+      - name: Build Cabana
+        working-directory: cabana
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -DCMAKE_INSTALL_PREFIX=$HOME/cabana \
+            -DCMAKE_PREFIX_PATH="$HOME/kokkos" \
+            -DCabana_ENABLE_GRID=ON
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Checkout Finch
+        uses: actions/checkout@v3
+      - name: Build Finch
+        run: |
+          cmake -B build \
+            -D CMAKE_INSTALL_PREFIX=$HOME/finch \
+            -D CMAKE_PREFIX_PATH="$HOME/cabana;$HOME/json" \
+            -D CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -D CMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -D CMAKE_CXX_FLAGS="-Wall -Wextra -pedantic -Werror" \
+            -D MPIEXEC_MAX_NUMPROCS=2 \
+            -D MPIEXEC_PREFLAGS="--oversubscribe"
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Test Scan Paths
+        working-directory: examples/create_scan_path
+        run: |
+          $HOME/finch/bin/create_scan_paths -i inputs.json
+      - name: Test Finch
+        working-directory: examples/single_line
+        run: |
+          $HOME/finch/bin/finch -i inputs_small.json
+          mpirun -n 2 --oversubscribe $HOME/finch/bin/finch -i inputs_small.json
+
+  HIP:
+    defaults:
+      run:
+        shell: bash
+    env:
+      # Needed because FindMPI relies heavily on the compiler wrappers, which aren't used with hipcc
+      MPI_LOCATION: /usr/lib/x86_64-linux-gnu/openmpi/
+    strategy:
+      matrix:
+        cxx: ['hipcc']
+        cmake_build_type: ['Release']
+        kokkos_ver: ['4.2.00']
+    runs-on: ubuntu-20.04
+    container: ghcr.io/ecp-copa/ci-containers/rocm:latest
+    steps:
+      - name: Checkout kokkos
+        uses: actions/checkout@v3
+        with:
+          repository: kokkos/kokkos
+          ref: ${{ matrix.kokkos_ver }}
+          path: kokkos
+      - name: Build kokkos
+        working-directory: kokkos
+        run: |
+          cmake -B build \
+            -D CMAKE_INSTALL_PREFIX=$HOME/kokkos \
+            -D Kokkos_ENABLE_HIP=ON \
+            -D Kokkos_ARCH_VEGA908=ON \
+            -D CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -D CMAKE_CXX_COMPILER=${{ matrix.cxx }}
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Checkout Cabana
+        uses: actions/checkout@v3
+        with:
+          repository: ECP-CoPA/Cabana
+          ref: 0.6.1
+          path: cabana
+      - name: Build Cabana
+        working-directory: cabana
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -DCMAKE_INSTALL_PREFIX=$HOME/cabana \
+            -DCMAKE_PREFIX_PATH="$HOME/kokkos" \
+            -DCabana_ENABLE_GRID=ON
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Checkout Finch
+        uses: actions/checkout@v3
+      - name: Build Finch
+        run: |
+          cmake -B build \
+            -D CMAKE_INSTALL_PREFIX=$HOME/finch \
+            -D CMAKE_PREFIX_PATH="$HOME/cabana;$HOME/json" \
+            -D CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -D CMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -D CMAKE_CXX_FLAGS="-Wall -Wextra -pedantic -Werror -I${MPI_LOCATION}/include" \
+            -D CMAKE_EXE_LINKER_FLAGS="-L${MPI_LOCATION}/lib -lmpi" \
+            -D CMAKE_SHARED_LINKER_FLAGS="-L${MPI_LOCATION}/lib -lmpi"
+          cmake --build build --parallel 2
+          cmake --install build
+
+  CUDA:
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      matrix:
+        cxx: ['nvcc']
+        cmake_build_type: ['Release']
+        kokkos_ver: ['4.1.00']
+    runs-on: ubuntu-20.04
+    container: ghcr.io/ecp-copa/ci-containers/cuda:12.2.0
+    steps:
+      - name: Checkout kokkos
+        uses: actions/checkout@v3
+        with:
+          repository: kokkos/kokkos
+          ref: ${{ matrix.kokkos_ver }}
+          path: kokkos
+      - name: Build kokkos
+        working-directory: kokkos
+        run: |
+          cmake -B build \
+            -D CMAKE_INSTALL_PREFIX=$HOME/kokkos \
+            -D CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -D Kokkos_ENABLE_CUDA=ON \
+            -D Kokkos_ARCH_VOLTA72=ON \
+            -D Kokkos_ENABLE_CUDA_LAMBDA=ON
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Checkout Cabana
+        uses: actions/checkout@v3
+        with:
+          repository: ECP-CoPA/Cabana
+          ref: 0.6.1
+          path: cabana
+      - name: Build Cabana
+        working-directory: cabana
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -DCMAKE_INSTALL_PREFIX=$HOME/cabana \
+            -DCMAKE_PREFIX_PATH="$HOME/kokkos" \
+            -DCabana_ENABLE_GRID=ON
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Checkout Finch
+        uses: actions/checkout@v3
+      - name: Build Finch
+        run: |
+          cmake -B build \
+            -D CMAKE_INSTALL_PREFIX=$HOME/finch \
+            -D CMAKE_PREFIX_PATH="$HOME/cabana;$HOME/json" \
+            -D CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -D CMAKE_CXX_FLAGS="-Wall -Wextra -pedantic -Werror"
+          cmake --build build --parallel 2
+          cmake --install build

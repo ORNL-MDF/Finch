@@ -6,6 +6,9 @@ add_library(Finch::ScanPaths ALIAS FinchScanPaths)
 
 target_link_libraries(FinchScanPaths INTERFACE FinchCore)
 
+# Scan path generation makes significant use of NaN and cannot currently support fast-math
+target_compile_options(FinchScanPaths INTERFACE -fno-fast-math)
+
 target_include_directories(FinchScanPaths INTERFACE
                            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                            $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>

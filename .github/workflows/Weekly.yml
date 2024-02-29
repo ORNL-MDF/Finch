@@ -1,0 +1,71 @@
+name: Weekly
+on:
+  workflow_dispatch:
+    inputs:
+      cmake_args:
+        description: 'Extra CMake args'
+  schedule:
+    - cron:  '0 3 * * 1'
+
+jobs:
+  CI:
+    strategy:
+      matrix:
+        backend: ["OPENMP", "SERIAL"]
+    runs-on: ubuntu-20.04
+    container: ghcr.io/ecp-copa/ci-containers/ubuntu:latest
+    steps:
+      - name: Checkout kokkos
+        uses: actions/checkout@v3
+        with:
+          repository: kokkos/kokkos
+          ref: develop
+          path: kokkos
+      - name: Build kokkos
+        working-directory: kokkos
+        run: |
+          cmake -B build \
+            -D CMAKE_INSTALL_PREFIX=$HOME/kokkos \
+            -D Kokkos_ENABLE_${{ matrix.backend }}=ON \
+            -D CMAKE_BUILD_TYPE=Debug
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Checkout Cabana
+        uses: actions/checkout@v3
+        with:
+          repository: ECP-CoPA/Cabana
+          ref: master
+          path: cabana
+      - name: Build Cabana
+        working-directory: cabana
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_INSTALL_PREFIX=$HOME/cabana \
+            -DCMAKE_PREFIX_PATH="$HOME/kokkos" \
+            -DCabana_ENABLE_GRID=ON
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Checkout Finch
+        uses: actions/checkout@v3
+      - name: Build Finch
+        run: |
+          cmake -B build \
+            -D CMAKE_INSTALL_PREFIX=$HOME/finch \
+            -D CMAKE_PREFIX_PATH="$HOME/cabana" \
+            -D Finch_ENABLE_TESTING=ON \
+            -D Finch_ENABLE_JSON=ON \
+            -D CMAKE_BUILD_TYPE=Debug \
+            ${{ github.event.inputs.cmake_args }}
+          cmake --build build --parallel 2
+          cmake --install build
+          CTEST_OUTPUT_ON_FAILURE=1 cmake --build build --target test
+      - name: Test Scan Paths
+        working-directory: examples/create_scan_path
+        run: |
+          $HOME/finch/bin/create_scan_paths -i inputs.json
+      - name: Test Finch
+        working-directory: examples/single_line
+        run: |
+          $HOME/finch/bin/finch -i inputs_small.json
+          mpirun -n 2 --oversubscribe $HOME/finch/bin/finch -i inputs_small.json

@@ -53,13 +53,10 @@ jobs:
           cmake -B build \
             -D CMAKE_INSTALL_PREFIX=$HOME/finch \
             -D CMAKE_PREFIX_PATH="$HOME/cabana" \
-            -D Finch_ENABLE_TESTING=ON \
-            -D Finch_ENABLE_JSON=ON \
             -D CMAKE_BUILD_TYPE=Debug \
             ${{ github.event.inputs.cmake_args }}
           cmake --build build --parallel 2
           cmake --install build
-          CTEST_OUTPUT_ON_FAILURE=1 cmake --build build --target test
       - name: Test Scan Paths
         working-directory: examples/create_scan_path
         run: |

@@ -52,7 +52,7 @@ void run( int argc, char* argv[] )
     auto fd = Finch::createSolver( db, grid );
 
     // class for storing solidification data
-    Finch::SolidificationData<memory_space> solidification_data( grid, db );
+    Finch::SolidificationData<memory_space> solidification_data( db, grid );
 
     // update the temperature field
     for ( int step = 0; step < num_steps; ++step )
@@ -84,7 +84,7 @@ void run( int argc, char* argv[] )
         // communicate halos
         grid.gather();
 
-        solidification_data.update();
+        solidification_data.update( grid );
 
         // Write the current temperature field (or, if step = num_steps - 1,
         // write the final temperature field)

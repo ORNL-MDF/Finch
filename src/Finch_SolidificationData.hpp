@@ -44,8 +44,15 @@ class SolidificationData
     using view_double4D = Kokkos::View<double****, memory_space>;
 
   private:
-    Grid<memory_space>& grid;
-    const Inputs& db;
+    // Needed for file output
+    int mpi_rank_;
+    std::string folder_name_;
+    double liquidus_;
+    double dt_;
+    double time_;
+    double cell_size_;
+    bool enabled_;
+    std::string format_;
 
     view_int count;
 
@@ -57,13 +64,19 @@ class SolidificationData
 
     view_double4D tm_view;
 
-    std::string folder_name;
-
   public:
+    // Default constructor
+    SolidificationData() {}
     // constructor
-    SolidificationData( Grid<memory_space>& grid, Inputs& db )
-        : grid( grid )
-        , db( db )
+    SolidificationData( const Inputs& inputs, Grid<memory_space>& grid )
+        : mpi_rank_( grid.comm_rank )
+        , folder_name_( inputs.sampling.directory_name )
+        , liquidus_( inputs.properties.liquidus )
+        , dt_( inputs.time.time_step )
+        , time_( inputs.time.time )
+        , cell_size_( inputs.space.cell_size )
+        , enabled_( inputs.sampling.enabled )
+        , format_( inputs.sampling.format )
     {
         count = view_int( "count", 1 );
 
@@ -83,22 +96,14 @@ class SolidificationData
         auto tm =
             Cabana::Grid::createArray<double, memory_space>( "tm", layout );
         tm_view = tm->view();
-
-        folder_name = db.sampling.directory_name;
     }
 
-    void updateEvents()
+    void updateEvents( Grid<memory_space>& grid )
     {
         // get local copies from grid
         auto local_mesh = grid.getLocalMesh();
         auto T = grid.getTemperature();
         auto T0 = grid.getPreviousTemperature();
-
-        // get values from simulation data bases
-        auto liquidus = db.properties.liquidus;
-        auto dt = db.time.time_step;
-        auto time = db.time.time;
-        auto cell_size = db.space.cell_size;
 
         // get local copies of member variables on device for KOKKOS_LAMBDA
         auto local_count = count;
@@ -110,11 +115,11 @@ class SolidificationData
 
         Cabana::Grid::grid_parallel_for(
             "local_grid_for", exec_space(), grid.getIndexSpace(),
-            KOKKOS_LAMBDA( const int i, const int j, const int k ) {
+            KOKKOS_CLASS_LAMBDA( const int i, const int j, const int k ) {
                 double temp = T( i, j, k, 0 );
                 double temp0 = T0( i, j, k, 0 );
 
-                if ( ( temp <= liquidus ) && ( temp0 > liquidus ) )
+                if ( ( temp <= liquidus_ ) && ( temp0 > liquidus_ ) )
                 {
                     int current_count =
                         Kokkos::atomic_fetch_add( &local_count( 0 ), 1 );
@@ -134,41 +139,41 @@ class SolidificationData
                             local_tm_view( i, j, k, 0 );
 
                         // event solidification time
-                        double m = ( temp - liquidus ) / ( temp - temp0 );
+                        double m = ( temp - liquidus_ ) / ( temp - temp0 );
                         m = fmin( fmax( m, 0.0 ), 1.0 );
-                        local_events( current_count, 4 ) = time - m * dt;
+                        local_events( current_count, 4 ) = time_ - m * dt_;
 
                         // cooling rate
                         local_events( current_count, 5 ) =
-                            ( temp0 - temp ) / dt;
+                            ( temp0 - temp ) / dt_;
 
                         // temperature gradient components
                         local_events( current_count, 6 ) =
                             ( T( i + 1, j, k, 0 ) - T( i - 1, j, k, 0 ) ) /
-                            ( 2.0 * cell_size );
+                            ( 2.0 * cell_size_ );
 
                         local_events( current_count, 7 ) =
                             ( T( i, j + 1, k, 0 ) - T( i, j - 1, k, 0 ) ) /
-                            ( 2.0 * cell_size );
+                            ( 2.0 * cell_size_ );
 
                         local_events( current_count, 8 ) =
                             ( T( i, j, k + 1, 0 ) - T( i, j, k - 1, 0 ) ) /
-                            ( 2.0 * cell_size );
+                            ( 2.0 * cell_size_ );
                     }
                 }
-                else if ( ( temp > liquidus ) && ( temp0 <= liquidus ) )
+                else if ( ( temp > liquidus_ ) && ( temp0 <= liquidus_ ) )
                 {
-                    double m = ( temp - liquidus ) / ( temp - temp0 );
+                    double m = ( temp - liquidus_ ) / ( temp - temp0 );
                     m = fmin( fmax( m, 0.0 ), 1.0 );
-                    local_tm_view( i, j, k, 0 ) = time - m * dt;
+                    local_tm_view( i, j, k, 0 ) = time_ - m * dt_;
                 }
             } );
     }
 
     // Update the solidification data
-    void update()
+    void update( Grid<memory_space>& grid )
     {
-        if ( !db.sampling.enabled )
+        if ( !enabled_ )
         {
             return;
         }
@@ -176,7 +181,7 @@ class SolidificationData
         auto count_old_host =
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
 
-        updateEvents();
+        updateEvents( grid );
 
         auto count_host =
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
@@ -194,7 +199,7 @@ class SolidificationData
 
             Kokkos::deep_copy( count, count_old_host( 0 ) );
 
-            updateEvents();
+            updateEvents( grid );
         }
 
         // view size is within 90% of capacity. double current size.
@@ -207,10 +212,12 @@ class SolidificationData
         }
     }
 
+    auto get() { return events; }
+
     // Write the solidification data to separate files for each MPI rank
     void write()
     {
-        if ( !db.sampling.enabled )
+        if ( !enabled_ )
         {
             return;
         }
@@ -222,14 +229,14 @@ class SolidificationData
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
 
         // create directory is not present, otherwise overwrite existing files
-        if ( mkdir( folder_name.c_str(), 0777 ) != -1 )
+        if ( mkdir( folder_name_.c_str(), 0777 ) != -1 )
         {
-            std::cout << "Creating directory: " << folder_name << std::endl;
+            std::cout << "Creating directory: " << folder_name_ << std::endl;
         }
 
         std::ofstream fout;
-        std::string filename( folder_name + "/data_" +
-                              std::to_string( grid.comm_rank ) + ".csv" );
+        std::string filename( folder_name_ + "/data_" +
+                              std::to_string( mpi_rank_ ) + ".csv" );
 
         fout.open( filename );
         fout << std::fixed << std::setprecision( 10 );
@@ -240,7 +247,7 @@ class SolidificationData
                  << events_host( n, 2 ) << "," << events_host( n, 3 ) << ","
                  << events_host( n, 4 ) << "," << events_host( n, 5 );
 
-            if ( db.sampling.format == "default" )
+            if ( format_ == "default" )
             {
                 fout << "," << events_host( n, 6 ) << "," << events_host( n, 7 )
                      << "," << events_host( n, 8 );

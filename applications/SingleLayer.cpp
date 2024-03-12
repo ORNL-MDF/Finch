@@ -17,11 +17,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#include "Finch_Grid.hpp"
-#include "Finch_Inputs.hpp"
-#include "Finch_SolidificationData.hpp"
-#include "Finch_Solver.hpp"
-#include "MovingBeam/Finch_MovingBeam.hpp"
+#include "Finch_Core.hpp"
 
 void run( int argc, char* argv[] )
 {

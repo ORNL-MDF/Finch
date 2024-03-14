@@ -9,8 +9,8 @@
  * SPDX-License-Identifier: BSD-3-Clause                                    *
  ****************************************************************************/
 
-#ifndef SingleLayer_H
-#define SingleLayer_H
+#ifndef Layer_H
+#define Layer_H
 
 #include <Cabana_Grid.hpp>
 #include <Kokkos_Core.hpp>
@@ -25,14 +25,14 @@ namespace Finch
 {
 
 template <typename MemorySpace>
-class SingleLayer
+class Layer
 {
   public:
     using memory_space = MemorySpace;
     using sampling_type = Finch::SolidificationData<memory_space>;
     sampling_type solidification_data_;
 
-    SingleLayer( Inputs& inputs, Grid<MemorySpace>& grid )
+    Layer( Inputs& inputs, Grid<MemorySpace>& grid )
     {
         // Only construct if turned on - will otherwise default and immediately
         // return from any member functions

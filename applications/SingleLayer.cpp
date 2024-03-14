@@ -45,7 +45,7 @@ void run( int argc, char* argv[] )
     auto fd = Finch::createSolver( db, grid );
 
     // Run the full single layer problem
-    Finch::SingleLayer app( db, grid );
+    Finch::Layer app( db, grid );
     app.run( exec_space(), db, grid, beam, fd );
 
     // Write the temperature data used by ExaCA/other post-processing

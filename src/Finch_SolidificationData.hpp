@@ -105,12 +105,6 @@ class SolidificationData
         auto T = grid.getTemperature();
         auto T0 = grid.getPreviousTemperature();
 
-        // get local copies of member variables on device for KOKKOS_LAMBDA
-        auto local_count = count;
-        auto local_capacity = capacity;
-        auto local_events = events;
-        auto local_tm_view = tm_view;
-
         using entity_type = typename Grid<memory_space>::entity_type;
 
         Cabana::Grid::grid_parallel_for(
@@ -122,41 +116,39 @@ class SolidificationData
                 if ( ( temp <= liquidus_ ) && ( temp0 > liquidus_ ) )
                 {
                     int current_count =
-                        Kokkos::atomic_fetch_add( &local_count( 0 ), 1 );
+                        Kokkos::atomic_fetch_add( &count( 0 ), 1 );
 
-                    if ( current_count < local_capacity )
+                    if ( current_count < capacity )
                     {
                         // event coordinates
                         double pt[3];
                         int idx[3] = { i, j, k };
                         local_mesh.coordinates( entity_type(), idx, pt );
-                        local_events( current_count, 0 ) = pt[0];
-                        local_events( current_count, 1 ) = pt[1];
-                        local_events( current_count, 2 ) = pt[2];
+                        events( current_count, 0 ) = pt[0];
+                        events( current_count, 1 ) = pt[1];
+                        events( current_count, 2 ) = pt[2];
 
                         // event melting time
-                        local_events( current_count, 3 ) =
-                            local_tm_view( i, j, k, 0 );
+                        events( current_count, 3 ) = tm_view( i, j, k, 0 );
 
                         // event solidification time
                         double m = ( temp - liquidus_ ) / ( temp - temp0 );
                         m = fmin( fmax( m, 0.0 ), 1.0 );
-                        local_events( current_count, 4 ) = time_ - m * dt_;
+                        events( current_count, 4 ) = time_ - m * dt_;
 
                         // cooling rate
-                        local_events( current_count, 5 ) =
-                            ( temp0 - temp ) / dt_;
+                        events( current_count, 5 ) = ( temp0 - temp ) / dt_;
 
                         // temperature gradient components
-                        local_events( current_count, 6 ) =
+                        events( current_count, 6 ) =
                             ( T( i + 1, j, k, 0 ) - T( i - 1, j, k, 0 ) ) /
                             ( 2.0 * cell_size_ );
 
-                        local_events( current_count, 7 ) =
+                        events( current_count, 7 ) =
                             ( T( i, j + 1, k, 0 ) - T( i, j - 1, k, 0 ) ) /
                             ( 2.0 * cell_size_ );
 
-                        local_events( current_count, 8 ) =
+                        events( current_count, 8 ) =
                             ( T( i, j, k + 1, 0 ) - T( i, j, k - 1, 0 ) ) /
                             ( 2.0 * cell_size_ );
                     }
@@ -165,7 +157,7 @@ class SolidificationData
                 {
                     double m = ( temp - liquidus_ ) / ( temp - temp0 );
                     m = fmin( fmax( m, 0.0 ), 1.0 );
-                    local_tm_view( i, j, k, 0 ) = time_ - m * dt_;
+                    tm_view( i, j, k, 0 ) = time_ - m * dt_;
                 }
             } );
     }

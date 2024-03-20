@@ -17,11 +17,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#include "Finch_Grid.hpp"
-#include "Finch_Inputs.hpp"
-#include "Finch_SolidificationData.hpp"
-#include "Finch_Solver.hpp"
-#include "MovingBeam/Finch_MovingBeam.hpp"
+#include "Finch_Core.hpp"
 
 void run( int argc, char* argv[] )
 {
@@ -45,80 +41,25 @@ void run( int argc, char* argv[] )
         db.space.global_high_corner, db.space.ranks_per_dim, bc_types,
         db.space.initial_temperature );
 
-    auto owned_space = grid.getIndexSpace();
-
-    // time stepping
-    double& time = db.time.time;
-    int num_steps = db.time.num_steps;
-    double dt = db.time.time_step;
-
     // Create the solver
     auto fd = Finch::createSolver( db, grid );
 
-    // class for storing solidification data
-    Finch::SolidificationData<memory_space> solidification_data( grid, db );
-
-    // update the temperature field
-    for ( int step = 0; step < num_steps; ++step )
-    {
-        db.time_monitor.update();
-
-        time += dt;
-
-        // update beam position
-        beam.move( time );
-        double beam_power = beam.power();
-        double beam_pos[3];
-        for ( std::size_t d = 0; d < 3; ++d )
-            beam_pos[d] = beam.position( d );
-
-        // Get temperature views;
-        auto T = grid.getTemperature();
-        auto T0 = grid.getPreviousTemperature();
-
-        // store previous value for explicit update
-        Kokkos::deep_copy( T0, T );
-
-        // Solve finite difference
-        fd.solve( exec_space(), owned_space, T, T0, beam_power, beam_pos );
-
-        // update boundaries
-        grid.updateBoundaries();
-
-        // communicate halos
-        grid.gather();
-
-        solidification_data.update();
-
-        // Write the current temperature field (or, if step = num_steps - 1,
-        // write the final temperature field)
-        if ( ( ( step + 1 ) % db.time.output_interval == 0 ) ||
-             ( step == num_steps - 1 ) )
-        {
-            grid.output( step + 1, ( step + 1 ) * db.time.time_step );
-        }
-
-        // Update time monitoring (or, if step = num_steps - 1, write the final
-        // solution time)
-        if ( ( ( step + 1 ) % db.time.monitor_interval == 0 ) ||
-             ( step == num_steps - 1 ) )
-        {
-            db.time_monitor.write( step + 1 );
-        }
-    }
+    // Run the full single layer problem
+    Finch::Layer app( db, grid );
+    app.run( exec_space(), db, grid, beam, fd );
 
     // Write the temperature data used by ExaCA/other post-processing
-    solidification_data.write();
+    app.writeSolidificationData();
 }
 
 int main( int argc, char* argv[] )
 {
     MPI_Init( &argc, &argv );
-    {
-        Kokkos::ScopeGuard scope_guard( argc, argv );
+    Kokkos::initialize( argc, argv );
 
-        run( argc, argv );
-    }
+    run( argc, argv );
+
+    Kokkos::finalize();
     MPI_Finalize();
 
     return 0;

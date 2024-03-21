@@ -22,6 +22,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <string>
 #include <unistd.h>
 
 #include <nlohmann/json.hpp>
@@ -140,59 +141,20 @@ class Inputs
     int comm_rank;
     int comm_size;
 
-    // constructor
+    // constructor for Finch run as standalone code
     Inputs( MPI_Comm comm, int argc, char* argv[] )
     {
         MPI_Comm_rank( comm, &comm_rank );
         MPI_Comm_size( comm, &comm_size );
-
-        readInput( argc, argv );
-
-        write();
-
-        // create auxilary properties
-        properties.thermal_diffusivity =
-            ( properties.thermal_conductivity ) /
-            ( properties.density * properties.specific_heat );
-
-        time.time_step = ( time.Co * space.cell_size * space.cell_size ) /
-                         ( properties.thermal_diffusivity );
-
-        Info << "Calculated time step: " << time.time_step << std::endl;
-
-        time.time = time.start_time;
-
-        time.num_steps = static_cast<int>( ( time.end_time - time.start_time ) /
-                                           ( time.time_step ) );
-
-        // If total_output_steps = 0, print only the final temperature field,
-        // otherwise bound output_interval as larger than 0 but no larger than
-        // the total number of time steps
-        if ( time.total_output_steps == 0 )
-            time.output_interval = time.num_steps;
-        else
-        {
-            time.output_interval = static_cast<int>(
-                ( time.num_steps / time.total_output_steps ) );
-            time.output_interval =
-                std::max( std::min( time.output_interval, time.num_steps ), 1 );
-        }
-
-        // If total_monitor_steps = 0, do not print time step or current
-        // runtime, otherwise bound monitor_interval as larger than 0 but no
-        // larger than the total number of time steps
-        if ( time.total_monitor_steps == 0 )
-            time.monitor_interval = time.num_steps;
-        else
-        {
-            time.monitor_interval = static_cast<int>(
-                ( time.num_steps / time.total_monitor_steps ) );
-            time.monitor_interval = std::max(
-                std::min( time.monitor_interval, time.num_steps ), 1 );
-        }
-
-        // initialize time monitoring
-        time_monitor = TimeMonitor( comm, time );
+        std::string filename = getFilename( argc, argv );
+        parseInputFile( comm, filename );
+    }
+    // constructor for coupled run of Finch with ExaCA
+    Inputs( MPI_Comm comm, std::string filename )
+    {
+        MPI_Comm_rank( comm, &comm_rank );
+        MPI_Comm_size( comm, &comm_size );
+        parseInputFile( comm, filename );
     }
 
     void write()
@@ -262,7 +224,7 @@ class Inputs
     }
 
   private:
-    void readInput( int argc, char* argv[] )
+    std::string getFilename( int argc, char* argv[] )
     {
         const char* filename = nullptr;
         int option;
@@ -275,12 +237,69 @@ class Inputs
             }
             else
             {
-                std::cerr << "Usage: " << argv[0] << " -i <input_json_file>"
-                          << std::endl;
-                return;
+                std::string error_message =
+                    "Error: the input file must be specified using -i "
+                    "<input_json_file>";
+                throw std::runtime_error( error_message );
             }
         }
+        std::string filename_s( filename );
+        return filename_s;
+    }
 
+    void parseInputFile( MPI_Comm comm, const std::string filename )
+    {
+        readInput( filename );
+
+        write();
+
+        // create auxilary properties
+        properties.thermal_diffusivity =
+            ( properties.thermal_conductivity ) /
+            ( properties.density * properties.specific_heat );
+
+        time.time_step = ( time.Co * space.cell_size * space.cell_size ) /
+                         ( properties.thermal_diffusivity );
+
+        Info << "Calculated time step: " << time.time_step << std::endl;
+
+        time.time = time.start_time;
+
+        time.num_steps = static_cast<int>( ( time.end_time - time.start_time ) /
+                                           ( time.time_step ) );
+
+        // If total_output_steps = 0, print only the final temperature field,
+        // otherwise bound output_interval as larger than 0 but no larger than
+        // the total number of time steps
+        if ( time.total_output_steps == 0 )
+            time.output_interval = time.num_steps;
+        else
+        {
+            time.output_interval = static_cast<int>(
+                ( time.num_steps / time.total_output_steps ) );
+            time.output_interval =
+                std::max( std::min( time.output_interval, time.num_steps ), 1 );
+        }
+
+        // If total_monitor_steps = 0, do not print time step or current
+        // runtime, otherwise bound monitor_interval as larger than 0 but no
+        // larger than the total number of time steps
+        if ( time.total_monitor_steps == 0 )
+            time.monitor_interval = time.num_steps;
+        else
+        {
+            time.monitor_interval = static_cast<int>(
+                ( time.num_steps / time.total_monitor_steps ) );
+            time.monitor_interval = std::max(
+                std::min( time.monitor_interval, time.num_steps ), 1 );
+        }
+
+        // initialize time monitoring
+        time_monitor = TimeMonitor( comm, time );
+    }
+
+    void readInput( const std::string filename )
+    {
         // parse input file
         std::ifstream db_stream( filename );
         nlohmann::json db = nlohmann::json::parse( db_stream );

@@ -25,3 +25,8 @@ endif()
 add_subdirectory(src)
 add_subdirectory(applications)
 add_subdirectory(utilities)
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FinchConfig.cmakein
+  ${CMAKE_CURRENT_BINARY_DIR}/FinchConfig.cmake @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/FinchConfig.cmake"
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Finch)

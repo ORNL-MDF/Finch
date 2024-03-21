@@ -270,7 +270,7 @@ class Inputs
 
         write();
 
-        // create auxilary properties
+        // create auxiliary properties
         properties.thermal_diffusivity =
             ( properties.thermal_conductivity ) /
             ( properties.density * properties.specific_heat );

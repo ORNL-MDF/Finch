@@ -131,7 +131,7 @@ class Grid
         Cabana::Grid::ArrayOp::assign( *T, initial_temperature,
                                        Cabana::Grid::Ghost() );
 
-        // create an array to store previous temperature for explicit udpate
+        // create an array to store previous temperature for explicit update
         // Note: this is an entirely separate array on purpose (no shallow copy)
         T0 = Cabana::Grid::createArray<double, memory_space>( name, layout );
 

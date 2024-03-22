@@ -101,7 +101,7 @@ class Layer
         // communicate halos
         grid.gather();
 
-        solidification_data_.update( grid );
+        solidification_data_.update( grid, time );
 
         // Write the current temperature field (or, if n = num_steps - 1,
         // write the final temperature field)

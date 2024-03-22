@@ -49,7 +49,6 @@ class SolidificationData
     std::string folder_name_;
     double liquidus_;
     double dt_;
-    double time_;
     double cell_size_;
     bool enabled_;
     std::string format_;
@@ -73,7 +72,6 @@ class SolidificationData
         , folder_name_( inputs.sampling.directory_name )
         , liquidus_( inputs.properties.liquidus )
         , dt_( inputs.time.time_step )
-        , time_( inputs.time.time )
         , cell_size_( inputs.space.cell_size )
         , enabled_( inputs.sampling.enabled )
         , format_( inputs.sampling.format )
@@ -98,7 +96,7 @@ class SolidificationData
         tm_view = tm->view();
     }
 
-    void updateEvents( Grid<memory_space>& grid )
+    void updateEvents( Grid<memory_space>& grid, const double time )
     {
         // get local copies from grid
         auto local_mesh = grid.getLocalMesh();
@@ -134,7 +132,7 @@ class SolidificationData
                         // event solidification time
                         double m = ( temp - liquidus_ ) / ( temp - temp0 );
                         m = fmin( fmax( m, 0.0 ), 1.0 );
-                        events( current_count, 4 ) = time_ - m * dt_;
+                        events( current_count, 4 ) = time - m * dt_;
 
                         // cooling rate
                         events( current_count, 5 ) = ( temp0 - temp ) / dt_;
@@ -157,13 +155,13 @@ class SolidificationData
                 {
                     double m = ( temp - liquidus_ ) / ( temp - temp0 );
                     m = fmin( fmax( m, 0.0 ), 1.0 );
-                    tm_view( i, j, k, 0 ) = time_ - m * dt_;
+                    tm_view( i, j, k, 0 ) = time - m * dt_;
                 }
             } );
     }
 
     // Update the solidification data
-    void update( Grid<memory_space>& grid )
+    void update( Grid<memory_space>& grid, const double time )
     {
         if ( !enabled_ )
         {
@@ -173,7 +171,7 @@ class SolidificationData
         auto count_old_host =
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
 
-        updateEvents( grid );
+        updateEvents( grid, time );
 
         auto count_host =
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
@@ -191,7 +189,7 @@ class SolidificationData
 
             Kokkos::deep_copy( count, count_old_host( 0 ) );
 
-            updateEvents( grid );
+            updateEvents( grid, time );
         }
 
         // view size is within 90% of capacity. double current size.

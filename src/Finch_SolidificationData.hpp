@@ -204,7 +204,20 @@ class SolidificationData
         }
     }
 
-    auto get() { return events; }
+    // Return all data for the events that have been recorded during the
+    // simulation
+    auto get()
+    {
+        auto events_host =
+            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), events );
+        auto count_host =
+            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
+        auto event_list = std::make_pair( 0, count_host( 0 ) );
+        auto temp_components = std::make_pair( 0, nCmpts );
+        auto input_temperature_data_host =
+            Kokkos::subview( events_host, event_list, temp_components );
+        return input_temperature_data_host;
+    }
 
     // Write the solidification data to separate files for each MPI rank
     void write()

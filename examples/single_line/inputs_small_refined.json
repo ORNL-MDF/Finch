@@ -28,7 +28,7 @@
   {
     "absorption": 0.3,
     "two_sigma": [60e-6, 60e-6, 60e-6],
-    "scan_path_file": "/Users/65y/Desktop/finch/examples/single_line/scan_path_small.txt"
+    "scan_path_file": "scan_path_small.txt"
   },
   "sampling":
   {

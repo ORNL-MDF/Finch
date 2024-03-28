@@ -42,6 +42,8 @@ class SolidificationData
     using view_int = Kokkos::View<int*, memory_space>;
     using view_double2D = Kokkos::View<double**, memory_space>;
     using view_double4D = Kokkos::View<double****, memory_space>;
+    using view_type_coupled =
+        Kokkos::View<double**, Kokkos::LayoutLeft, Kokkos::HostSpace>;
 
   private:
     // Needed for file output
@@ -210,11 +212,12 @@ class SolidificationData
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), events );
         auto count_host =
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
-        auto event_list = std::make_pair( 0, count_host( 0 ) );
-        auto temp_components = std::make_pair( 0, nCmpts );
-        auto input_temperature_data_host =
-            Kokkos::subview( events_host, event_list, temp_components );
-        return input_temperature_data_host;
+        Kokkos::resize( events_host, count_host( 0 ), nCmpts );
+        view_type_coupled copied_data(
+            Kokkos::ViewAllocateWithoutInitializing( "copied_data" ),
+            count_host( 0 ), nCmpts );
+        Kokkos::deep_copy( copied_data, events_host );
+        return copied_data;
     }
 
     // Write the solidification data to separate files for each MPI rank

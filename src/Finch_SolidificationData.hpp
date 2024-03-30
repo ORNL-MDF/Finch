@@ -212,7 +212,9 @@ class SolidificationData
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), events );
         auto count_host =
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
+        // Resize the host copy so only valid events get copied.
         Kokkos::resize( events_host, count_host( 0 ), nCmpts );
+        // Create a View on the host with fixed layout for coupling.
         view_type_coupled copied_data(
             Kokkos::ViewAllocateWithoutInitializing( "copied_data" ),
             count_host( 0 ), nCmpts );

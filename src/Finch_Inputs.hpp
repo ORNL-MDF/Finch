@@ -268,11 +268,12 @@ class Inputs
         time.num_steps = static_cast<int>( ( time.end_time - time.start_time ) /
                                            ( time.time_step ) );
 
-        // If total_output_steps = 0, print only the final temperature field,
-        // otherwise bound output_interval as larger than 0 but no larger than
-        // the total number of time steps
+        // If total_output_steps = 0, set increment to greater than the number
+        // of time steps to avoid printing output, otherwise bound
+        // output_interval to be greater than 1 and no larger than the total
+        // number of time steps
         if ( time.total_output_steps == 0 )
-            time.output_interval = time.num_steps;
+            time.output_interval = time.num_steps + 1;
         else
         {
             time.output_interval = static_cast<int>(
@@ -281,11 +282,12 @@ class Inputs
                 std::max( std::min( time.output_interval, time.num_steps ), 1 );
         }
 
-        // If total_monitor_steps = 0, do not print time step or current
-        // runtime, otherwise bound monitor_interval as larger than 0 but no
-        // larger than the total number of time steps
+        // If total_monitor_steps = 0, set increment to greater than the number
+        // of time steps to avoid printing output, otherwise bound
+        // monitor_interval to be greater than 1 and no larger than the total
+        // number of time steps
         if ( time.total_monitor_steps == 0 )
-            time.monitor_interval = time.num_steps;
+            time.monitor_interval = time.num_steps + 1;
         else
         {
             time.monitor_interval = static_cast<int>(

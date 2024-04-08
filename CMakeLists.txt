@@ -30,8 +30,3 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FinchConfig.cmakein
   ${CMAKE_CURRENT_BINARY_DIR}/FinchConfig.cmake @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/FinchConfig.cmake"
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Finch)
-
-# Install example input files for easy downstream use.
-file(GLOB FINCH_INPUTS examples/single_line/inputs*.json)
-install(FILES ${FINCH_INPUTS}
-  DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/Finch)

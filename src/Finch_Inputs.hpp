@@ -178,12 +178,6 @@ class Inputs
 
     void write()
     {
-        Info << "  Co: " << time.Co << std::endl;
-        Info << "  Start Time: " << time.start_time << std::endl;
-        Info << "  End Time: " << time.end_time << std::endl;
-        Info << "  Num Output Steps: " << time.total_output_steps << std::endl;
-        Info << "  Num Monitor Steps: " << time.total_monitor_steps
-             << std::endl;
         Info << "Simulation will be performed using parameters: " << std::endl;
 
         // Print time

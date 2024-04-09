@@ -35,6 +35,27 @@ namespace Finch
     if ( comm_rank == 0 )                                                      \
     std::cout
 
+struct Output
+{
+    int total_steps;
+    int interval;
+
+    void setInterval( const int num_steps )
+    {
+        // If total_output_steps = 0, set increment to greater than the number
+        // of time steps to avoid printing output, otherwise bound
+        // output_interval to be greater than 1 and no larger than the total
+        // number of time steps
+        if ( total_steps == 0 )
+            interval = num_steps + 1;
+        else
+        {
+            interval = static_cast<int>( ( num_steps / total_steps ) );
+            interval = std::max( std::min( interval, num_steps ), 1 );
+        }
+    }
+};
+
 struct Time
 {
     double Co;
@@ -42,11 +63,9 @@ struct Time
     double end_time;
     double time_step;
     double time;
-    int total_output_steps;
-    int total_monitor_steps;
     int num_steps;
-    int output_interval;
-    int monitor_interval;
+    Output output;
+    Output monitor;
 };
 
 struct Space
@@ -103,7 +122,7 @@ struct TimeMonitor
     {
         start_time = std::chrono::high_resolution_clock::now();
         MPI_Comm_rank( comm, &comm_rank );
-        total_monitor_steps = time.total_monitor_steps;
+        total_monitor_steps = time.monitor.total_steps;
         num_steps = time.num_steps;
     }
 
@@ -159,12 +178,6 @@ class Inputs
 
     void write()
     {
-        Info << "  Co: " << time.Co << std::endl;
-        Info << "  Start Time: " << time.start_time << std::endl;
-        Info << "  End Time: " << time.end_time << std::endl;
-        Info << "  Num Output Steps: " << time.total_output_steps << std::endl;
-        Info << "  Num Monitor Steps: " << time.total_monitor_steps
-             << std::endl;
         Info << "Simulation will be performed using parameters: " << std::endl;
 
         // Print time
@@ -172,8 +185,8 @@ class Inputs
         Info << "  Co: " << time.Co << std::endl;
         Info << "  Start Time: " << time.start_time << std::endl;
         Info << "  End Time: " << time.end_time << std::endl;
-        Info << "  Num Output Steps: " << time.total_output_steps << std::endl;
-        Info << "  Num Monitor Steps: " << time.total_monitor_steps
+        Info << "  Num Output Steps: " << time.output.total_steps << std::endl;
+        Info << "  Num Monitor Steps: " << time.monitor.total_steps
              << std::endl;
 
         // Print space
@@ -268,31 +281,8 @@ class Inputs
         time.num_steps = static_cast<int>( ( time.end_time - time.start_time ) /
                                            ( time.time_step ) );
 
-        // If total_output_steps = 0, print only the final temperature field,
-        // otherwise bound output_interval as larger than 0 but no larger than
-        // the total number of time steps
-        if ( time.total_output_steps == 0 )
-            time.output_interval = time.num_steps;
-        else
-        {
-            time.output_interval = static_cast<int>(
-                ( time.num_steps / time.total_output_steps ) );
-            time.output_interval =
-                std::max( std::min( time.output_interval, time.num_steps ), 1 );
-        }
-
-        // If total_monitor_steps = 0, do not print time step or current
-        // runtime, otherwise bound monitor_interval as larger than 0 but no
-        // larger than the total number of time steps
-        if ( time.total_monitor_steps == 0 )
-            time.monitor_interval = time.num_steps;
-        else
-        {
-            time.monitor_interval = static_cast<int>(
-                ( time.num_steps / time.total_monitor_steps ) );
-            time.monitor_interval = std::max(
-                std::min( time.monitor_interval, time.num_steps ), 1 );
-        }
+        time.output.setInterval( time.num_steps );
+        time.monitor.setInterval( time.num_steps );
 
         // initialize time monitoring
         time_monitor = TimeMonitor( comm, time );
@@ -308,8 +298,8 @@ class Inputs
         time.Co = db["time"]["Co"];
         time.start_time = db["time"]["start_time"];
         time.end_time = db["time"]["end_time"];
-        time.total_output_steps = db["time"]["total_output_steps"];
-        time.total_monitor_steps = db["time"]["total_monitor_steps"];
+        time.output.total_steps = db["time"]["total_output_steps"];
+        time.monitor.total_steps = db["time"]["total_monitor_steps"];
 
         // Read space components
         space.initial_temperature = db["space"]["initial_temperature"];

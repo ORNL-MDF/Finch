@@ -49,30 +49,32 @@ class Layer
         double& time = inputs.time.time;
         int num_steps = inputs.time.num_steps;
         double dt = inputs.time.time_step;
-        int output_interval = inputs.time.output_interval;
+        int output_interval = inputs.time.output.interval;
 
         // update the temperature field
         for ( int n = 0; n < num_steps; ++n )
         {
             inputs.time_monitor.update();
 
-            step( exec_space, n, time, num_steps, dt, output_interval, grid,
-                  beam, fd );
+            step( exec_space, time, dt, grid, beam, fd );
 
-            // Update time monitoring (or, if n = num_steps - 1, write the
-            // final solution time)
-            if ( ( ( n + 1 ) % inputs.time.monitor_interval == 0 ) ||
-                 ( n == num_steps - 1 ) )
+            // Update time monitoring
+            if ( ( n + 1 ) % inputs.time.monitor.interval == 0 )
             {
-                inputs.time_monitor.write( n + 1 );
+                inputs.time_monitor.write( n );
+            }
+
+            // Write the current temperature field
+            if ( ( n + 1 ) % output_interval == 0 )
+            {
+                grid.output( n, n * dt );
             }
         }
     }
 
     // Run a single timestep
     template <typename ExecutionSpace, typename SolverType>
-    void step( ExecutionSpace exec_space, const int n, double& time,
-               const int num_steps, const double dt, const int output_interval,
+    void step( ExecutionSpace exec_space, double& time, const double dt,
                Grid<MemorySpace> grid, MovingBeam& beam, SolverType& fd )
     {
         time += dt;
@@ -102,13 +104,6 @@ class Layer
         grid.gather();
 
         solidification_data_.update( grid, time );
-
-        // Write the current temperature field (or, if n = num_steps - 1,
-        // write the final temperature field)
-        if ( ( ( n + 1 ) % output_interval == 0 ) || ( n == num_steps - 1 ) )
-        {
-            grid.output( n + 1, ( n + 1 ) * dt );
-        }
     }
 
     auto getSolidificationData() { return solidification_data_.get(); }

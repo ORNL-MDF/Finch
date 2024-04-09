@@ -56,20 +56,25 @@ class Layer
         {
             inputs.time_monitor.update();
 
-            step( exec_space, n, time, dt, output_interval, grid, beam, fd );
+            step( exec_space, time, dt, grid, beam, fd );
 
             // Update time monitoring
             if ( ( n + 1 ) % inputs.time.monitor.interval == 0 )
             {
                 inputs.time_monitor.write( n );
             }
+
+            // Write the current temperature field
+            if ( ( n + 1 ) % output_interval == 0 )
+            {
+                grid.output( n, n * dt );
+            }
         }
     }
 
     // Run a single timestep
     template <typename ExecutionSpace, typename SolverType>
-    void step( ExecutionSpace exec_space, const int n, double& time,
-               const double dt, const int output_interval,
+    void step( ExecutionSpace exec_space, double& time, const double dt,
                Grid<MemorySpace> grid, MovingBeam& beam, SolverType& fd )
     {
         time += dt;
@@ -99,12 +104,6 @@ class Layer
         grid.gather();
 
         solidification_data_.update( grid, time );
-
-        // Write the current temperature field
-        if ( ( n + 1 ) % output_interval == 0 )
-        {
-            grid.output( n + 1, ( n + 1 ) * dt );
-        }
     }
 
     auto getSolidificationData() { return solidification_data_.get(); }

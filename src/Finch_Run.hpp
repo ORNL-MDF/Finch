@@ -49,7 +49,7 @@ class Layer
         double& time = inputs.time.time;
         int num_steps = inputs.time.num_steps;
         double dt = inputs.time.time_step;
-        int output_interval = inputs.time.output_interval;
+        int output_interval = inputs.time.output.interval;
 
         // update the temperature field
         for ( int n = 0; n < num_steps; ++n )
@@ -59,7 +59,7 @@ class Layer
             step( exec_space, n, time, dt, output_interval, grid, beam, fd );
 
             // Update time monitoring
-            if ( ( n + 1 ) % inputs.time.monitor_interval == 0 )
+            if ( ( n + 1 ) % inputs.time.monitor.interval == 0 )
             {
                 inputs.time_monitor.write( n );
             }

@@ -66,6 +66,10 @@ The main Finch examples can be run with the scripts provided in `examples/`.
 
 This includes generating a scan path (`create_scan_path/`) and simulating the heat transfer for a simple path (`single_line/`).
 
+## Citing
+
+If you use Finch in your work, please cite the current release or version used from [Zenodo](https://zenodo.org/doi/10.5281/zenodo.10698939).
+
 ## License
 
 Finch is distributed under an [open source 3-clause BSD license](LICENSE).

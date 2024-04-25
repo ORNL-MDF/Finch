@@ -27,6 +27,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include <Finch_Version.hpp>
+
 namespace Finch
 {
 
@@ -178,6 +180,8 @@ class Inputs
 
     void write()
     {
+        Info << "Finch version: " << version() << " (" << commitHash() << ")"
+             << std::endl;
         Info << "Simulation will be performed using parameters: " << std::endl;
 
         // Print time

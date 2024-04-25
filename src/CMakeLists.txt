@@ -1,3 +1,4 @@
+configure_file(Finch_Core_Config.hpp.cmakein Finch_Core_Config.hpp)
 file(GLOB CORE_HEADERS GLOB *.hpp)
 file(GLOB CORE_BEAM_HEADERS MovingBeam/*.hpp)
 file(GLOB CORE_SOURCE *.cpp MovingBeam/*.cpp)
@@ -25,3 +26,4 @@ install(EXPORT Finch_Targets
 
 install(FILES ${CORE_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(FILES ${CORE_BEAM_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/MovingBeam)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/Finch_Core_Config.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

@@ -109,6 +109,11 @@ class Layer
     auto getSolidificationData() { return solidification_data_.get(); }
 
     auto writeSolidificationData() { return solidification_data_.write(); }
+
+    auto getSolidificationDataBounds()
+    {
+        return solidification_data_.getBounds();
+    }
 };
 
 } // namespace Finch

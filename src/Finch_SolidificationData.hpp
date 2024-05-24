@@ -267,7 +267,7 @@ class SolidificationData
         fout.close();
     }
 
-    std::vector<double> getBounds()
+    Kokkos::Array<double, 6> getBounds()
     {
         // Local copies for lambda capture
         auto events_ = events;
@@ -303,7 +303,7 @@ class SolidificationData
             Kokkos::Max<double>( y_max ), Kokkos::Max<double>( z_max ) );
 
         // Get the min/max bounds on each direction across all ranks
-        std::vector<double> finch_data_bounds( 6 );
+        Kokkos::Array<double, 6> finch_data_bounds;
         MPI_Allreduce( &x_min, &finch_data_bounds[0], 1, MPI_DOUBLE, MPI_MIN,
                        MPI_COMM_WORLD );
         MPI_Allreduce( &y_min, &finch_data_bounds[1], 1, MPI_DOUBLE, MPI_MIN,
@@ -321,15 +321,15 @@ class SolidificationData
         {
             std::cout
                 << "Min/Max X bounds of the melted/resolidified region were "
-                << finch_data_bounds[0] << " / " << finch_data_bounds[1]
+                << finch_data_bounds[0] << " / " << finch_data_bounds[3]
                 << std::endl;
             std::cout
                 << "Min/Max Y bounds of the melted/resolidified region were "
-                << finch_data_bounds[2] << " / " << finch_data_bounds[3]
+                << finch_data_bounds[1] << " / " << finch_data_bounds[4]
                 << std::endl;
             std::cout
                 << "Min/Max Z bounds of the melted/resolidified region were "
-                << finch_data_bounds[4] << " / " << finch_data_bounds[5]
+                << finch_data_bounds[2] << " / " << finch_data_bounds[5]
                 << std::endl;
         }
         return finch_data_bounds;

@@ -267,72 +267,98 @@ class SolidificationData
         fout.close();
     }
 
-    Kokkos::Array<double, 6> getBounds()
+    std::array<double, 3> getLowerBounds()
     {
         // Local copies for lambda capture
         auto events_ = events;
         auto count_host =
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
 
-        // Iterate over list of events, getting the min/max bounds in each
-        // direction
-        double x_min, y_min, z_min, x_max, y_max, z_max;
+        // Iterate over list of events, getting the min bounds in each direction
+        double x_min, y_min, z_min;
         Kokkos::parallel_reduce(
             "solidification_event_bounds", count_host( 0 ),
             KOKKOS_LAMBDA( const int& n, double& x_min_th, double& y_min_th,
-                           double& z_min_th, double& x_max_th, double& y_max_th,
-                           double& z_max_th ) {
+                           double& z_min_th ) {
                 double x_event = events_( n, 0 );
                 double y_event = events_( n, 1 );
                 double z_event = events_( n, 2 );
                 if ( x_event < x_min_th )
                     x_min_th = x_event;
-                if ( x_event > x_max_th )
-                    x_max_th = x_event;
                 if ( y_event < y_min_th )
                     y_min_th = y_event;
-                if ( y_event > y_max_th )
-                    y_max_th = y_event;
                 if ( z_event < z_min_th )
                     z_min_th = z_event;
-                if ( z_event > z_max_th )
-                    z_max_th = z_event;
             },
             Kokkos::Min<double>( x_min ), Kokkos::Min<double>( y_min ),
-            Kokkos::Min<double>( z_min ), Kokkos::Max<double>( x_max ),
-            Kokkos::Max<double>( y_max ), Kokkos::Max<double>( z_max ) );
+            Kokkos::Min<double>( z_min ) );
 
-        // Get the min/max bounds on each direction across all ranks
-        Kokkos::Array<double, 6> finch_data_bounds;
-        MPI_Allreduce( &x_min, &finch_data_bounds[0], 1, MPI_DOUBLE, MPI_MIN,
-                       MPI_COMM_WORLD );
-        MPI_Allreduce( &y_min, &finch_data_bounds[1], 1, MPI_DOUBLE, MPI_MIN,
-                       MPI_COMM_WORLD );
-        MPI_Allreduce( &z_min, &finch_data_bounds[2], 1, MPI_DOUBLE, MPI_MIN,
-                       MPI_COMM_WORLD );
-        MPI_Allreduce( &x_max, &finch_data_bounds[3], 1, MPI_DOUBLE, MPI_MAX,
-                       MPI_COMM_WORLD );
-        MPI_Allreduce( &y_max, &finch_data_bounds[4], 1, MPI_DOUBLE, MPI_MAX,
-                       MPI_COMM_WORLD );
-        MPI_Allreduce( &z_max, &finch_data_bounds[5], 1, MPI_DOUBLE, MPI_MAX,
-                       MPI_COMM_WORLD );
+        // Get the min bounds on each direction across all ranks
+        std::array<double, 3> finch_data_bounds_low;
+        MPI_Allreduce( &x_min, &finch_data_bounds_low[0], 1, MPI_DOUBLE,
+                       MPI_MIN, MPI_COMM_WORLD );
+        MPI_Allreduce( &y_min, &finch_data_bounds_low[1], 1, MPI_DOUBLE,
+                       MPI_MIN, MPI_COMM_WORLD );
+        MPI_Allreduce( &z_min, &finch_data_bounds_low[2], 1, MPI_DOUBLE,
+                       MPI_MIN, MPI_COMM_WORLD );
 
         if ( mpi_rank_ == 0 )
         {
-            std::cout
-                << "Min/Max X bounds of the melted/resolidified region were "
-                << finch_data_bounds[0] << " / " << finch_data_bounds[3]
-                << std::endl;
-            std::cout
-                << "Min/Max Y bounds of the melted/resolidified region were "
-                << finch_data_bounds[1] << " / " << finch_data_bounds[4]
-                << std::endl;
-            std::cout
-                << "Min/Max Z bounds of the melted/resolidified region were "
-                << finch_data_bounds[2] << " / " << finch_data_bounds[5]
-                << std::endl;
+            std::cout << "Min X bound of the melted/resolidified region was "
+                      << finch_data_bounds_low[0] << std::endl;
+            std::cout << "Min Y bound of the melted/resolidified region was "
+                      << finch_data_bounds_low[1] << std::endl;
+            std::cout << "Min Z bound of the melted/resolidified region was "
+                      << finch_data_bounds_low[2] << std::endl;
         }
-        return finch_data_bounds;
+        return finch_data_bounds_low;
+    }
+
+    std::array<double, 3> getUpperBounds()
+    {
+        // Local copies for lambda capture
+        auto events_ = events;
+        auto count_host =
+            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
+
+        // Iterate over list of events, getting the max bounds in each direction
+        double x_max, y_max, z_max;
+        Kokkos::parallel_reduce(
+            "solidification_event_bounds", count_host( 0 ),
+            KOKKOS_LAMBDA( const int& n, double& x_max_th, double& y_max_th,
+                           double& z_max_th ) {
+                double x_event = events_( n, 0 );
+                double y_event = events_( n, 1 );
+                double z_event = events_( n, 2 );
+                if ( x_event > x_max_th )
+                    x_max_th = x_event;
+                if ( y_event > y_max_th )
+                    y_max_th = y_event;
+                if ( z_event > z_max_th )
+                    z_max_th = z_event;
+            },
+            Kokkos::Max<double>( x_max ), Kokkos::Max<double>( y_max ),
+            Kokkos::Max<double>( z_max ) );
+
+        // Get the min/max bounds on each direction across all ranks
+        std::array<double, 3> finch_data_bounds_high;
+        MPI_Allreduce( &x_max, &finch_data_bounds_high[0], 1, MPI_DOUBLE,
+                       MPI_MAX, MPI_COMM_WORLD );
+        MPI_Allreduce( &y_max, &finch_data_bounds_high[1], 1, MPI_DOUBLE,
+                       MPI_MAX, MPI_COMM_WORLD );
+        MPI_Allreduce( &z_max, &finch_data_bounds_high[2], 1, MPI_DOUBLE,
+                       MPI_MAX, MPI_COMM_WORLD );
+
+        if ( mpi_rank_ == 0 )
+        {
+            std::cout << "Max X bound of the melted/resolidified region was "
+                      << finch_data_bounds_high[0] << std::endl;
+            std::cout << "Max Y bound of the melted/resolidified region was "
+                      << finch_data_bounds_high[1] << std::endl;
+            std::cout << "Max Z bound of the melted/resolidified region was "
+                      << finch_data_bounds_high[2] << std::endl;
+        }
+        return finch_data_bounds_high;
     }
 };
 

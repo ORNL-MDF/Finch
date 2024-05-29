@@ -110,9 +110,13 @@ class Layer
 
     auto writeSolidificationData() { return solidification_data_.write(); }
 
-    auto getSolidificationDataBounds()
+    std::array<double, 3> getLowerSolidificationDataBounds()
     {
-        return solidification_data_.getBounds();
+        return solidification_data_.getLowerBounds();
+    }
+    std::array<double, 3> getUpperSolidificationDataBounds()
+    {
+        return solidification_data_.getUpperBounds();
     }
 };
 

@@ -294,24 +294,24 @@ class SolidificationData
             Kokkos::Min<double>( z_min ) );
 
         // Get the min bounds on each direction across all ranks
-        std::array<double, 3> finch_data_bounds_low;
-        MPI_Allreduce( &x_min, &finch_data_bounds_low[0], 1, MPI_DOUBLE,
-                       MPI_MIN, MPI_COMM_WORLD );
-        MPI_Allreduce( &y_min, &finch_data_bounds_low[1], 1, MPI_DOUBLE,
-                       MPI_MIN, MPI_COMM_WORLD );
-        MPI_Allreduce( &z_min, &finch_data_bounds_low[2], 1, MPI_DOUBLE,
-                       MPI_MIN, MPI_COMM_WORLD );
+        std::array<double, 3> data_bounds_low;
+        MPI_Allreduce( &x_min, &data_bounds_low[0], 1, MPI_DOUBLE, MPI_MIN,
+                       MPI_COMM_WORLD );
+        MPI_Allreduce( &y_min, &data_bounds_low[1], 1, MPI_DOUBLE, MPI_MIN,
+                       MPI_COMM_WORLD );
+        MPI_Allreduce( &z_min, &data_bounds_low[2], 1, MPI_DOUBLE, MPI_MIN,
+                       MPI_COMM_WORLD );
 
         if ( mpi_rank_ == 0 )
         {
             std::cout << "Min X bound of the melted/resolidified region was "
-                      << finch_data_bounds_low[0] << std::endl;
+                      << data_bounds_low[0] << std::endl;
             std::cout << "Min Y bound of the melted/resolidified region was "
-                      << finch_data_bounds_low[1] << std::endl;
+                      << data_bounds_low[1] << std::endl;
             std::cout << "Min Z bound of the melted/resolidified region was "
-                      << finch_data_bounds_low[2] << std::endl;
+                      << data_bounds_low[2] << std::endl;
         }
-        return finch_data_bounds_low;
+        return data_bounds_low;
     }
 
     std::array<double, 3> getUpperBounds()
@@ -341,24 +341,24 @@ class SolidificationData
             Kokkos::Max<double>( z_max ) );
 
         // Get the min/max bounds on each direction across all ranks
-        std::array<double, 3> finch_data_bounds_high;
-        MPI_Allreduce( &x_max, &finch_data_bounds_high[0], 1, MPI_DOUBLE,
-                       MPI_MAX, MPI_COMM_WORLD );
-        MPI_Allreduce( &y_max, &finch_data_bounds_high[1], 1, MPI_DOUBLE,
-                       MPI_MAX, MPI_COMM_WORLD );
-        MPI_Allreduce( &z_max, &finch_data_bounds_high[2], 1, MPI_DOUBLE,
-                       MPI_MAX, MPI_COMM_WORLD );
+        std::array<double, 3> data_bounds_high;
+        MPI_Allreduce( &x_max, &data_bounds_high[0], 1, MPI_DOUBLE, MPI_MAX,
+                       MPI_COMM_WORLD );
+        MPI_Allreduce( &y_max, &data_bounds_high[1], 1, MPI_DOUBLE, MPI_MAX,
+                       MPI_COMM_WORLD );
+        MPI_Allreduce( &z_max, &data_bounds_high[2], 1, MPI_DOUBLE, MPI_MAX,
+                       MPI_COMM_WORLD );
 
         if ( mpi_rank_ == 0 )
         {
             std::cout << "Max X bound of the melted/resolidified region was "
-                      << finch_data_bounds_high[0] << std::endl;
+                      << data_bounds_high[0] << std::endl;
             std::cout << "Max Y bound of the melted/resolidified region was "
-                      << finch_data_bounds_high[1] << std::endl;
+                      << data_bounds_high[1] << std::endl;
             std::cout << "Max Z bound of the melted/resolidified region was "
-                      << finch_data_bounds_high[2] << std::endl;
+                      << data_bounds_high[2] << std::endl;
         }
-        return finch_data_bounds_high;
+        return data_bounds_high;
     }
 };
 

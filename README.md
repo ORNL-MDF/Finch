@@ -62,9 +62,19 @@ make -j install
 
 ## Run Finch
 
-The main Finch examples can be run with the scripts provided in `examples/`.
+The main Finch examples can be run with the scripts provided in `examples/`. Inputs are described in more detail in the [`examples/README`](examples/README.md).
 
-This includes generating a scan path (`create_scan_path/`) and simulating the heat transfer for a simple path (`single_line/`).
+This includes generating a scan path (the provided script defines path to the executable and inputs for the example):
+```
+cd examples/create_scan_path
+./run_example.sh
+```
+
+and simulating the heat transfer for a simple path:
+```
+cd examples/single_line
+./run_example.sh
+```
 
 ## Citing
 

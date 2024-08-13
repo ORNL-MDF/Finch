@@ -110,13 +110,26 @@ class Layer
 
     auto writeSolidificationData() { return solidification_data_.write(); }
 
-    std::array<double, 3> getLowerSolidificationDataBounds()
+    [[deprecated( "Use of getLowerSolidificationDataBounds() without a "
+                  "communicator is deprecated." )]] std::array<double, 3>
+    getLowerSolidificationDataBounds()
     {
-        return solidification_data_.getLowerBounds();
+        return solidification_data_.getLowerBounds( MPI_COMM_WORLD );
     }
-    std::array<double, 3> getUpperSolidificationDataBounds()
+    [[deprecated( "Use of getUpperSolidificationDataBounds() without a "
+                  "communicator is deprecated." )]] std::array<double, 3>
+    getUpperSolidificationDataBounds()
     {
-        return solidification_data_.getUpperBounds();
+        return solidification_data_.getUpperBounds( MPI_COMM_WORLD );
+    }
+
+    std::array<double, 3> getLowerSolidificationDataBounds( MPI_Comm comm )
+    {
+        return solidification_data_.getLowerBounds( comm );
+    }
+    std::array<double, 3> getUpperSolidificationDataBounds( MPI_Comm comm )
+    {
+        return solidification_data_.getUpperBounds( comm );
     }
 };
 

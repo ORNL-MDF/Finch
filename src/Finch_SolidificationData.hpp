@@ -267,7 +267,7 @@ class SolidificationData
         fout.close();
     }
 
-    std::array<double, 3> getLowerBounds()
+    std::array<double, 3> getLowerBounds( MPI_Comm comm )
     {
         // Local copies for lambda capture
         auto events_ = events;
@@ -296,11 +296,11 @@ class SolidificationData
         // Get the min bounds on each direction across all ranks
         std::array<double, 3> data_bounds_low;
         MPI_Allreduce( &x_min, &data_bounds_low[0], 1, MPI_DOUBLE, MPI_MIN,
-                       MPI_COMM_WORLD );
+                       comm );
         MPI_Allreduce( &y_min, &data_bounds_low[1], 1, MPI_DOUBLE, MPI_MIN,
-                       MPI_COMM_WORLD );
+                       comm );
         MPI_Allreduce( &z_min, &data_bounds_low[2], 1, MPI_DOUBLE, MPI_MIN,
-                       MPI_COMM_WORLD );
+                       comm );
 
         if ( mpi_rank_ == 0 )
         {
@@ -314,7 +314,7 @@ class SolidificationData
         return data_bounds_low;
     }
 
-    std::array<double, 3> getUpperBounds()
+    std::array<double, 3> getUpperBounds( MPI_Comm comm )
     {
         // Local copies for lambda capture
         auto events_ = events;
@@ -343,11 +343,11 @@ class SolidificationData
         // Get the min/max bounds on each direction across all ranks
         std::array<double, 3> data_bounds_high;
         MPI_Allreduce( &x_max, &data_bounds_high[0], 1, MPI_DOUBLE, MPI_MAX,
-                       MPI_COMM_WORLD );
+                       comm );
         MPI_Allreduce( &y_max, &data_bounds_high[1], 1, MPI_DOUBLE, MPI_MAX,
-                       MPI_COMM_WORLD );
+                       comm );
         MPI_Allreduce( &z_max, &data_bounds_high[2], 1, MPI_DOUBLE, MPI_MAX,
-                       MPI_COMM_WORLD );
+                       comm );
 
         if ( mpi_rank_ == 0 )
         {

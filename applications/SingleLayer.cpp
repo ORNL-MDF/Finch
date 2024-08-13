@@ -50,8 +50,8 @@ void run( int argc, char* argv[] )
 
     // Write the temperature data used by ExaCA/other post-processing
     app.writeSolidificationData();
-    app.getLowerSolidificationDataBounds();
-    app.getUpperSolidificationDataBounds();
+    app.getLowerSolidificationDataBounds( grid.getComm() );
+    app.getUpperSolidificationDataBounds( grid.getComm() );
 }
 
 int main( int argc, char* argv[] )

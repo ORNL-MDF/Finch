@@ -104,7 +104,7 @@ class Grid
         std::array<bool, 3> periodic = { false, false, false };
 
         std::array<int, 3> ranks_per_dim_manual =
-            partitioner.ranksPerDimension( MPI_COMM_WORLD, ranks_per_dim );
+            partitioner.ranksPerDimension( comm, ranks_per_dim );
 
         // print the created decomposition
         Info << "Ranks per dimension: ";
@@ -168,6 +168,8 @@ class Grid
     }
 
     void gather() { halo->gather( exec_space{}, *T ); }
+
+    MPI_Comm getComm() { return local_grid->globalGrid().comm(); }
 
   protected:
     // Halo and stencil width;

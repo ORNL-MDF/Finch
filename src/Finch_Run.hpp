@@ -108,7 +108,10 @@ class Layer
 
     auto getSolidificationData() { return solidification_data_.get(); }
 
-    auto writeSolidificationData() { return solidification_data_.write(); }
+    auto writeSolidificationData( MPI_Comm comm )
+    {
+        return solidification_data_.write( comm );
+    }
 
     [[deprecated( "Use of getLowerSolidificationDataBounds() without a "
                   "communicator is deprecated." )]] std::array<double, 3>

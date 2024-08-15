@@ -223,13 +223,14 @@ class SolidificationData
     }
 
     // Write the solidification data to separate files for each MPI rank
-    void write()
+    void write( MPI_Comm comm )
     {
         if ( !enabled_ )
         {
             return;
         }
 
+        double start_solidification_print_time = MPI_Wtime();
         auto events_host =
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), events );
 
@@ -265,6 +266,14 @@ class SolidificationData
         }
 
         fout.close();
+
+        MPI_Barrier( comm );
+        double end_solidification_print_time = MPI_Wtime();
+        if ( mpi_rank_ == 0 )
+            std::cout << "Solidification data written in "
+                      << end_solidification_print_time -
+                             start_solidification_print_time
+                      << " seconds" << std::endl;
     }
 
     std::array<double, 3> getLowerBounds( MPI_Comm comm )

@@ -49,7 +49,7 @@ void run( int argc, char* argv[] )
     app.run( exec_space(), db, grid, beam, fd );
 
     // Write the temperature data used by ExaCA/other post-processing
-    app.writeSolidificationData();
+    app.writeSolidificationData( grid.getComm() );
     app.getLowerSolidificationDataBounds( grid.getComm() );
     app.getUpperSolidificationDataBounds( grid.getComm() );
 }

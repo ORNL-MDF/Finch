@@ -19,6 +19,7 @@
 #define SolidificationData_H
 
 #include <array>
+#include <chrono>
 #include <iostream>
 #include <math.h>
 #include <mpi.h>
@@ -230,7 +231,9 @@ class SolidificationData
             return;
         }
 
-        double start_solidification_print_time = MPI_Wtime();
+        std::chrono::high_resolution_clock::time_point
+            start_solidification_print_time =
+                std::chrono::high_resolution_clock::now();
         auto events_host =
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), events );
 
@@ -268,11 +271,14 @@ class SolidificationData
         fout.close();
 
         MPI_Barrier( comm );
-        double end_solidification_print_time = MPI_Wtime();
+        std::chrono::high_resolution_clock::time_point
+            end_solidification_print_time =
+                std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_seconds =
+            end_solidification_print_time - start_solidification_print_time;
         if ( mpi_rank_ == 0 )
-            std::cout << "Solidification data written in "
-                      << end_solidification_print_time -
-                             start_solidification_print_time
+            std::cout << "Solidification data written in " << std::fixed
+                      << std::setprecision( 6 ) << elapsed_seconds.count()
                       << " seconds" << std::endl;
     }
 

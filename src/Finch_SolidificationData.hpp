@@ -29,6 +29,10 @@
 #include <Cabana_Grid.hpp>
 #include <Kokkos_Core.hpp>
 
+#ifdef Finch_ENABLE_STORK
+#include <Stork_Core.hpp>
+#endif
+
 #include <Finch_Grid.hpp>
 #include <Finch_Inputs.hpp>
 
@@ -42,10 +46,14 @@ class SolidificationData
     using exec_space = typename memory_space::execution_space;
     using view_int = Kokkos::View<int*, memory_space>;
     using view_double2D = Kokkos::View<double**, memory_space>;
+    using view_double2D_host = typename view_double2D::host_mirror_type;
     using view_double4D = Kokkos::View<double****, memory_space>;
     using view_type_coupled =
         Kokkos::View<double**, Kokkos::LayoutLeft, Kokkos::HostSpace>;
-
+#ifdef Finch_ENABLE_STORK
+    using DualSRDF = Stork::Structs::SRDF_Dual<double>;
+    using DualRDF = Stork::Structs::RDF_Dual<double>;
+#endif
   private:
     // Needed for file output
     int mpi_rank_;
@@ -53,49 +61,120 @@ class SolidificationData
     double dt_;
     double cell_size_;
     bool enabled_;
-
+    std::string format_;
+    int fine_factor_;
+    bool srdf_format_;
     view_int count;
 
     int capacity;
 
+    double x_min_sampling, y_min_sampling, z_min_sampling, x_max_sampling,
+        y_max_sampling, z_max_sampling;
+
+    // Used for SRDF-based data collection
+    int nx_solidification, ny_solidification, nz_solidification;
+    view_int cellnum;
+    view_double2D timesview, thermalsview;
+    // Common among SRDF and RDF-based data collection
     int nCmpts;
-
-    view_double2D events;
-
+    // Used for RDF-based data collection
     view_double4D tm_view;
+    view_double2D events;
 
   public:
     // Default constructor
     SolidificationData() {}
     // constructor
-    SolidificationData( const Inputs& inputs, Grid<memory_space>& grid )
+    SolidificationData( const Inputs& inputs, Grid<memory_space>& grid,
+                        const bool srdf_format )
         : mpi_rank_( grid.comm_rank )
         , liquidus_( inputs.properties.liquidus )
         , dt_( inputs.time.time_step )
         , cell_size_( inputs.space.cell_size )
         , enabled_( inputs.sampling.enabled )
+        , format_( inputs.sampling.format )
+        , fine_factor_( inputs.sampling.fine_factor )
+        , srdf_format_( srdf_format )
     {
         count = view_int( "count", 1 );
 
         capacity = round( grid.getIndexSpace().size() );
 
-        // components: x, y, z, tm, ts, R, Gx, Gy, Gz
-        nCmpts = 9;
-
-        events =
-            view_double2D( Kokkos::ViewAllocateWithoutInitializing( "events" ),
-                           capacity, nCmpts );
-
+        auto local_mesh = grid.getLocalMesh();
         auto local_grid = grid.getLocalGrid();
         using entity_type = typename Grid<memory_space>::entity_type;
         auto layout =
             Cabana::Grid::createArrayLayout( local_grid, 1, entity_type() );
-        auto tm =
-            Cabana::Grid::createArray<double, memory_space>( "tm", layout );
-        tm_view = tm->view();
+
+        // nCmpts:
+        if ( srdf_format_ )
+        {
+            // Allocate views for SRDF data
+            cellnum =
+                view_int( Kokkos::ViewAllocateWithoutInitializing( "cellnum" ),
+                          capacity );
+            // 2 components: previous, current time step
+            timesview = view_double2D(
+                Kokkos::ViewAllocateWithoutInitializing( "times" ), capacity,
+                2 );
+            // 16 components stored for SRDF (8 cell vertices at previous,
+            // current time step)
+            thermalsview = view_double2D(
+                Kokkos::ViewAllocateWithoutInitializing( "thermals" ), capacity,
+                16 );
+            // 6 components for RDF (x,y,z,tm,tl,cr), as G is not current
+            // calculated/interpolated with Stork
+            nCmpts = 6;
+        }
+        else
+        {
+            // Allocate views for RDF data
+            auto tm =
+                Cabana::Grid::createArray<double, memory_space>( "tm", layout );
+            tm_view = tm->view();
+            Kokkos::deep_copy( tm_view, 0 );
+            // 9 components for RDF (x,y,z,tm,tl,cr,Gx,Gy,Gz)
+            nCmpts = 9;
+            // Data passed to microstructure simulation
+            events = view_double2D(
+                Kokkos::ViewAllocateWithoutInitializing( "events" ), capacity,
+                nCmpts );
+        }
+
+        // Lower bounds of region considered for sampling
+        x_min_sampling = inputs.sampling.global_low_corner[0];
+        y_min_sampling = inputs.sampling.global_low_corner[1];
+        z_min_sampling = inputs.sampling.global_low_corner[2];
+
+        // CA grid - store node data in halo regions in positive x,y,z, but if
+        // at a global domain boundary, do not store boundary node data
+        if ( std::abs( local_mesh.highCorner( Cabana::Grid::Own(), 0 ) -
+                       inputs.space.global_high_corner[0] ) < 1e-10 )
+            nx_solidification = grid.num_points_x;
+        else
+            nx_solidification = grid.num_points_x + 1;
+        if ( std::abs( local_mesh.highCorner( Cabana::Grid::Own(), 1 ) -
+                       inputs.space.global_high_corner[1] ) < 1e-10 )
+            ny_solidification = grid.num_points_y;
+        else
+            ny_solidification = grid.num_points_y + 1;
+        if ( std::abs( local_mesh.highCorner( Cabana::Grid::Own(), 2 ) -
+                       inputs.space.global_high_corner[2] ) < 1e-10 )
+            nz_solidification = grid.num_points_z;
+        else
+            nz_solidification = grid.num_points_z + 1;
+
+        // Upper bounds of region considered for sampling
+        x_max_sampling = std::fmin( inputs.space.global_high_corner[0],
+                                    inputs.sampling.global_high_corner[0] );
+        y_max_sampling = std::fmin( inputs.space.global_high_corner[1],
+                                    inputs.sampling.global_high_corner[1] );
+        z_max_sampling = std::fmin( inputs.space.global_high_corner[2],
+                                    inputs.sampling.global_high_corner[2] );
     }
 
-    void updateEvents( Grid<memory_space>& grid, const double time )
+    // Update the solidification data in the reduced data format
+    void updateRDFEvents( Grid<memory_space>& grid, const double time )
     {
         // get local copies from grid
         auto local_mesh = grid.getLocalMesh();
@@ -159,6 +238,119 @@ class SolidificationData
             } );
     }
 
+#ifdef Finch_ENABLE_STORK
+    // Update the solidification data in the stork-compatible data format
+    void updateSRDFEvents( Grid<memory_space>& grid, const double time )
+    {
+        // get local copies from grid
+        auto T = grid.getTemperature();
+        auto T0 = grid.getPreviousTemperature();
+        auto local_mesh = grid.getLocalMesh();
+        using entity_type = typename Grid<memory_space>::entity_type;
+        double x_min_sampling_ = x_min_sampling;
+        double y_min_sampling_ = y_min_sampling;
+        double z_min_sampling_ = z_min_sampling;
+        double x_max_sampling_ = x_max_sampling;
+        double y_max_sampling_ = y_max_sampling;
+        double z_max_sampling_ = z_max_sampling;
+        double dt = dt_;
+        int capacity_ = capacity;
+        int ny_solidification_ = ny_solidification;
+        int nz_solidification_ = nz_solidification;
+        Cabana::Grid::grid_parallel_for(
+            "local_grid_for", exec_space(), grid.getIndexSpace(),
+            KOKKOS_CLASS_LAMBDA( const int i, const int j, const int k ) {
+                double pt[3];
+                int idx[3] = { i, j, k };
+                local_mesh.coordinates( entity_type(), idx, pt );
+                // Loop over owned points, except for global x,y,z bound
+                if ( ( pt[0] >= x_min_sampling_ ) &&
+                     ( pt[1] >= y_min_sampling_ ) &&
+                     ( pt[2] >= z_min_sampling_ ) &&
+                     ( pt[0] < x_max_sampling_ ) &&
+                     ( pt[1] < y_max_sampling_ ) &&
+                     ( pt[2] < z_max_sampling_ ) )
+                {
+                    //                    %f\n",i,j,k,pt[0],pt[1],pt[2]);
+                    // Count number of vertices above the liquidus on this time
+                    // step
+                    int vert_above_liquidus = 0;
+                    int vert_above_liquidus_old = 0;
+                    for ( int n_index = 0; n_index < 8; ++n_index )
+                    {
+                        const int neighbor_zn = k + ( n_index & 1 );
+                        const int neighbor_yn = j + ( ( n_index >> 1 ) & 1 );
+                        const int neighbor_xn = i + ( ( n_index >> 2 ) & 1 );
+
+                        vert_above_liquidus_old +=
+                            T0( neighbor_xn, neighbor_yn, neighbor_zn, 0 ) >=
+                            liquidus_;
+                        vert_above_liquidus += T( neighbor_xn, neighbor_yn,
+                                                  neighbor_zn, 0 ) >= liquidus_;
+                    }
+
+                    if ( T( i, j, k, 0 ) >= liquidus_ )
+                        tm_view( i, j, k, 0 ) = 1;
+                    // store previous, current temperature state if:
+                    // - between 1 and 7 of the vertices were above the liquidus
+                    // on either the previous or current time step
+                    // - all vertices were above the liquidus and now all
+                    // vertices are below the liquidus
+                    // - all vertices were below the liquidus and now all
+                    // vertices are above the liquidus
+                    if ( ( vert_above_liquidus_old % 8 ) ||
+                         ( vert_above_liquidus % 8 ) ||
+                         ( vert_above_liquidus != vert_above_liquidus_old ) )
+                    {
+                        auto counter =
+                            Kokkos::atomic_fetch_add( &count( 0 ), 1 );
+                        //                        printf("k = %d, Z =
+                        //                        %f\n",k,pt[2]);
+                        // Store 1D index of cell in a way consistent with Stork
+                        // - if there's space in the structs
+                        if ( counter < capacity_ )
+                        {
+                            cellnum( counter ) =
+                                ( i - 1 ) * ny_solidification_ *
+                                    nz_solidification_ +
+                                ( j - 1 ) * nz_solidification_ + ( k - 1 );
+
+                            // Store previous, current times
+                            timesview( counter, 0 ) = time - dt;
+                            timesview( counter, 1 ) = time;
+
+                            // Store vertex temperatures at previous, current
+                            // times
+                            for ( int n_index = 0; n_index < 8; ++n_index )
+                            {
+                                const int neighbor_zn = k + ( n_index & 1 );
+                                const int neighbor_yn =
+                                    j + ( ( n_index >> 1 ) & 1 );
+                                const int neighbor_xn =
+                                    i + ( ( n_index >> 2 ) & 1 );
+                                thermalsview( counter, n_index ) = T0(
+                                    neighbor_xn, neighbor_yn, neighbor_zn, 0 );
+                                thermalsview( counter, n_index + 8 ) = T(
+                                    neighbor_xn, neighbor_yn, neighbor_zn, 0 );
+                                //                                if ((mpi_rank_
+                                //                                == 0) && (i ==
+                                //                                25) && (j ==
+                                //                                20))
+                                //                                    printf("Time
+                                //                                    %f temp at
+                                //                                    node %d is
+                                //                                    %f\n",time,n_index,T(neighbor_xn,
+                                //                                    neighbor_yn,
+                                //                                    neighbor_zn,
+                                //                                    0 ));
+                            }
+                        }
+                    }
+                }
+            } );
+    }
+#endif
+
     // Update the solidification data
     void update( Grid<memory_space>& grid, const double time )
     {
@@ -170,7 +362,14 @@ class SolidificationData
         auto count_old_host =
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
 
-        updateEvents( grid, time );
+#ifdef Finch_ENABLE_STORK
+        if ( srdf_format )
+            updateSRDFEvents( grid, time );
+        else
+            updateRDFEvents( grid, time );
+#else
+        updateRDFEvents( grid, time );
+#endif
 
         auto count_host =
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
@@ -182,45 +381,276 @@ class SolidificationData
         if ( new_count >= capacity )
         {
             capacity = 2.0 * new_count;
-
-            Kokkos::resize( Kokkos::WithoutInitializing, events, capacity,
-                            nCmpts );
-
+            if ( srdf_format_ )
+            {
+                Kokkos::resize( Kokkos::WithoutInitializing, cellnum,
+                                capacity );
+                Kokkos::resize( Kokkos::WithoutInitializing, timesview,
+                                capacity, 2 );
+                Kokkos::resize( Kokkos::WithoutInitializing, thermalsview,
+                                capacity, nCmpts );
+            }
+            else
+                Kokkos::resize( Kokkos::WithoutInitializing, events, capacity,
+                                nCmpts );
             Kokkos::deep_copy( count, count_old_host( 0 ) );
-
-            updateEvents( grid, time );
+#ifdef Finch_ENABLE_STORK
+            if ( srdf_format )
+                updateSRDFEvents( grid, time );
+            else
+                updateRDFEvents( grid, time );
+#else
+            updateRDFEvents( grid, time );
+#endif
         }
-
         // view size is within 90% of capacity. double current size.
         else if ( new_count / capacity > 0.9 )
         {
             capacity = 2.0 * new_count;
 
-            Kokkos::resize( Kokkos::WithoutInitializing, events, capacity,
-                            nCmpts );
+            Kokkos::resize( Kokkos::WithoutInitializing, cellnum, capacity );
+            Kokkos::resize( Kokkos::WithoutInitializing, timesview, capacity,
+                            2 );
+            Kokkos::resize( Kokkos::WithoutInitializing, thermalsview, capacity,
+                            16 );
         }
     }
 
-    // Return all data for the events that have been recorded during the
-    // simulation
-    auto get()
+    // Without stork, copy the existing device view to the host
+    view_double2D_host getEvents()
     {
-        auto events_host =
+        view_double2D_host events_host =
+            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), events );
+        events_host =
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), events );
         auto count_host =
             Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
         // Resize the host copy so only valid events get copied.
         Kokkos::resize( events_host, count_host( 0 ), nCmpts );
+        return events_host;
+    }
+
+#ifdef Finch_ENABLE_STORK
+    // Using Stork, interpolate the temperature vertex data to obtain the
+    // solidification events
+    view_double2D_host getEvents( Grid<memory_space>& grid, MPI_Comm comm )
+    {
+        view_double2D_host events_host(
+            Kokkos::ViewAllocateWithoutInitializing( "events_host" ), 1,
+            nCmpts );
+        auto local_mesh = grid.getLocalMesh();
+        DualSRDF SRDF;
+        Stork::Structs::RegularGrid_Header<double, host_space> header =
+            SRDF.host_header;
+
+        // Origin point
+        header.global_x0() = local_mesh.lowCorner( Cabana::Grid::Own(), 0 );
+        header.global_y0() = local_mesh.lowCorner( Cabana::Grid::Own(), 1 );
+        header.global_z0() = local_mesh.lowCorner( Cabana::Grid::Own(), 2 );
+        std::cout << "Rank " << mpi_rank_ << " low corner is at "
+                  << header.global_x0() << ", " << header.global_y0() << ", "
+                  << header.global_z0() << std::endl;
+
+        // Each MPI rank interpolates only on the local grid - no awareness of
+        // global grid needed
+        header.global_i0() = 0;
+        header.global_j0() = 0;
+        header.global_k0() = 0;
+
+        // Number of points in each direction - includes halo in positive
+        // directions unless at the global domain bound
+        header.local_inum() = nx_solidification;
+        header.local_jnum() = ny_solidification;
+        header.local_knum() = nz_solidification;
+
+        // Cell size
+        header.gridResolution() = cell_size_;
+
+        // Liquidus temperature
+        SRDF.T_critical = liquidus_;
+
+        // Resize views based on final count of temperature snapshots
+        auto count_host =
+            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
+        Kokkos::resize( cellnum, count_host( 0 ) );
+        Kokkos::resize( timesview, count_host( 0 ), 2 );
+        Kokkos::resize( thermalsview, count_host( 0 ), 16 );
+        // Number of snapshots
+        SRDF.numSnaps = count_host( 0 );
+        std::cout << "Rank " << mpi_rank_
+                  << " number of snapshots: " << count_host( 0 ) << std::endl;
+        // Copy views to host
+        auto cellnum_host =
+            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), cellnum );
+        auto timesview_host = Kokkos::create_mirror_view_and_copy(
+            Kokkos::HostSpace(), timesview );
+        auto thermalsview_host = Kokkos::create_mirror_view_and_copy(
+            Kokkos::HostSpace(), thermalsview );
+
+        // Create tuples to order by cell number
+        std::vector<int> old_list_position( count_host( 0 ) );
+        for ( int n = 0; n < count_host( 0 ); n++ )
+            old_list_position[n] = n;
+        std::vector<std::tuple<int, int>> snapshots;
+        snapshots.reserve( count_host( 0 ) );
+
+        //        std::sort(unique_verts.begin(), unique_verts.end());
+        //        std::vector<int>::iterator it;
+        //        it = std::unique(unique_verts.begin(), unique_verts.end());
+        //        unique_verts.resize(std::distance(unique_verts.begin(), it));
+        //        std::cout << "Number of unique vertices: " <<
+        //        unique_verts.size() << std::endl;
+
+        for ( int n = 0; n < count_host( 0 ); n++ )
+        {
+            snapshots.push_back(
+                std::make_tuple( cellnum_host( n ), old_list_position[n] ) );
+        }
+        // Sorting from low to high
+        std::sort( snapshots.begin(), snapshots.end() );
+
+        // Create empty SRDF views based on count
+        SRDF.template Make_Data_Views<device_space>( count_host( 0 ) );
+        // Make data mirrors on host
+        SRDF.template Make_Data_Mirrors<device_space, host_space>();
+
+        // Get reference to SRDF views on host
+        Stork::Structs::SRDF_Data<double, host_space>& data = SRDF.host_data;
+
+        // Fill SRDF views from sorted Finch data
+        for ( int n = 0; n < count_host( 0 ); n++ )
+        {
+            data.cellNum_view( n ) = std::get<0>( snapshots[n] );
+            //            int k = std::get<0>(snapshots[n]) % grid.num_points_z;
+            //            if (k < 15)
+            //                std::cout << "k = " << k << std::endl;
+            const int old_list_pos = std::get<1>( snapshots[n] );
+            data.times_view( 2 * n ) = timesview_host( old_list_pos, 0 );
+            data.times_view( 2 * n + 1 ) = timesview_host( old_list_pos, 1 );
+            for ( int vert = 0; vert < 16; vert++ )
+                data.thermals_view( 16 * n + vert ) =
+                    thermalsview_host( old_list_pos, vert );
+        }
+
+        //        int last_cell = -1;
+        //        bool melted_yn = false;
+        //        bool solidified_yn = false;
+        //        for (int n = 0; n < count_host(0); n++) {
+        //            int cell_num = SRDF.host_data.cellNum_view( n );
+        //            if ((cell_num != last_cell) && (melted_yn !=
+        //            solidified_yn)) {
+        //                std::cout << "Cell " << cell_num << " did something
+        //                weird" << std::endl; melted_yn = false; solidified_yn
+        //                = false; last_cell = cell_num;
+        //            }
+        //            double old_temp = SRDF.host_data.thermals_view( 16 * n );
+        //            double new_temp = SRDF.host_data.thermals_view( 16 * n  +
+        //            8); if ((old_temp < SRDF.T_critical) && (new_temp >=
+        //            SRDF.T_critical))
+        //                melted_yn = true;
+        //            if ((old_temp >= SRDF.T_critical) && (new_temp <
+        //            SRDF.T_critical))
+        //                solidified_yn = true;
+        //            if (cell_num == 11569) {
+        //                std::cout << "Cell 11569 Temps " << old_temp << ", "
+        //                << new_temp << std::endl;
+        //            }
+        //            if (cell_num == 11570) {
+        //                std::cout << "Cell 11570 Temps " << old_temp << ", "
+        //                << new_temp << std::endl;
+        //            }
+        //        }
+        //        for (int n = 0; n < count_host(0); n++) {
+        //            std::cout << "Cell num " << SRDF.host_data.cellNum_view( n
+        //            ) << std::endl; std::cout << "Time 0 " <<
+        //            SRDF.host_data.times_view( 2 * n ) << std::endl; std::cout
+        //            << "Time 1 " << SRDF.host_data.times_view( 2 * n + 1 ) <<
+        //            std::endl; for (int vert = 0; vert < 16; vert++)
+        //                std::cout << "Temp vert " << vert << " " <<
+        //                SRDF.host_data.thermals_view( 16 * n + vert ) <<
+        //                std::endl;
+        //        }
+        // Interpolate to fine cell size
+        DualRDF RDF = Stork::Run::Interpolate_SRDF_to_RDF<double, host_space,
+                                                          double, device_space>(
+            SRDF, fine_factor_ );
+
+        // Copy data from device back to host
+        RDF.template Make_Data_Mirrors<device_space, host_space>();
+        RDF.template Copy_All<device_space, host_space>();
+        //        std::cout << "Number of melting/solidification events: " <<
+        //        RDF.numEvents << std::endl;
+        std::cout << "Rank " << mpi_rank_ << " new domain "
+                  << RDF.host_header.local_inum() << ","
+                  << RDF.host_header.local_jnum() << ","
+                  << RDF.host_header.local_knum() << std::endl;
+
+        // Output Data to File (don't use Stork::IO::Output_RDF_csv since that
+        // will put the x,y,z,tm,tl,cr in all files)
+        // Stork::IO::Output_RDF_csv<double>( RDF, filename );
+
+        // Get reduced data format header and data for output
+        Stork::Structs::RegularGrid_Header<double, host_space>& output_header =
+            RDF.host_header;
+        Stork::Structs::RDF_Data<double, host_space>& output_data =
+            RDF.host_data;
+
+        // Get total number of events
+        const size_t numEvents = RDF.numEvents;
+        // With the number of events now known, allocate events view on host
+        Kokkos::realloc( events_host, numEvents, nCmpts );
+        std::cout << "Rank " << mpi_rank_ << " storing " << numEvents
+                  << " interpolated solidification events" << std::endl;
+        for ( uint32_t n = 0; n < numEvents; n++ )
+        {
+            // Get global xyz from local p
+            const uint32_t& local_p = output_data.p( n );
+            double global_xyz[3];
+            output_header.LOCAL_p_to_GLOBAL_xyz( global_xyz, local_p );
+            for ( int comp = 0; comp < 3; comp++ )
+                events_host( n, comp ) = global_xyz[comp];
+            events_host( n, 3 ) = output_data.tm( n );
+            events_host( n, 4 ) = output_data.tl( n );
+            events_host( n, 5 ) = output_data.cr( n );
+        }
+        // Copy events to device
+        Kokkos::realloc( events, numEvents, nCmpts );
+        events =
+            Kokkos::create_mirror_view_and_copy( memory_space(), events_host );
+        MPI_Barrier( comm );
+        return events_host;
+    }
+#endif
+
+    // Return all data for the events that have been recorded during the
+    // simulation
+    auto get( [[maybe_unused]] Grid<memory_space>& grid,
+              [[maybe_unused]] MPI_Comm comm, Sampling sampling_inputs,
+              bool write_data )
+    {
+        view_double2D_host events_host;
+#ifdef Finch_ENABLE_STORK
+        if ( _srdf_enabled )
+            events_host = getEvents( grid, comm );
+        else
+            events_host = getEvents();
+#else
+        events_host = getEvents();
+#endif
+        const int num_events = events_host.extent( 0 );
         // Create a View on the host with fixed layout for coupling.
         view_type_coupled copied_data(
             Kokkos::ViewAllocateWithoutInitializing( "copied_data" ),
-            count_host( 0 ), nCmpts );
+            num_events, nCmpts );
         Kokkos::deep_copy( copied_data, events_host );
+        if ( write_data )
+            write( copied_data, sampling_inputs, comm );
         return copied_data;
     }
 
     // Write the solidification data to separate files for each MPI rank
-    void write( Sampling sampling_inputs, MPI_Comm comm )
+    void write( view_type_coupled& solidification_data,
+                Sampling sampling_inputs, MPI_Comm comm )
     {
         if ( !enabled_ )
         {
@@ -230,11 +660,6 @@ class SolidificationData
         std::chrono::high_resolution_clock::time_point
             start_solidification_print_time =
                 std::chrono::high_resolution_clock::now();
-        auto events_host =
-            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), events );
-
-        auto count_host =
-            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
 
         // create directory is not present, otherwise overwrite existing files
         if ( mkdir( sampling_inputs.directory_name.c_str(), 0777 ) != -1 )
@@ -243,29 +668,30 @@ class SolidificationData
                       << sampling_inputs.directory_name << std::endl;
         }
 
-        std::ofstream fout;
         std::string filename( sampling_inputs.directory_name + "/data_" +
                               std::to_string( mpi_rank_ ) + ".csv" );
-
+        std::ofstream fout;
         fout.open( filename );
         fout << std::fixed << std::setprecision( 10 );
-
-        for ( int n = 0; n < count_host( 0 ); n++ )
+        const int num_events = solidification_data.extent( 0 );
+        for ( int n = 0; n < num_events; n++ )
         {
-            fout << events_host( n, 0 ) << "," << events_host( n, 1 ) << ","
-                 << events_host( n, 2 ) << "," << events_host( n, 3 ) << ","
-                 << events_host( n, 4 ) << "," << events_host( n, 5 );
+            fout << solidification_data( n, 0 ) << ","
+                 << solidification_data( n, 1 ) << ","
+                 << solidification_data( n, 2 ) << ","
+                 << solidification_data( n, 3 ) << ","
+                 << solidification_data( n, 4 ) << ","
+                 << solidification_data( n, 5 );
 
             if ( sampling_inputs.format == "default" )
             {
-                fout << "," << events_host( n, 6 ) << "," << events_host( n, 7 )
-                     << "," << events_host( n, 8 );
+                fout << "," << solidification_data( n, 6 ) << ","
+                     << solidification_data( n, 7 ) << ","
+                     << solidification_data( n, 8 );
             }
 
             fout << std::endl;
         }
-
-        fout.close();
 
         MPI_Barrier( comm );
         std::chrono::high_resolution_clock::time_point

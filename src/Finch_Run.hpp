@@ -31,13 +31,17 @@ class Layer
     using memory_space = MemorySpace;
     using sampling_type = Finch::SolidificationData<memory_space>;
     sampling_type solidification_data_;
+    bool srdf_format;
 
     Layer( Inputs& inputs, Grid<MemorySpace>& grid )
     {
         // Only construct if turned on - will otherwise default and immediately
         // return from any member functions
         if ( inputs.sampling.enabled )
-            solidification_data_ = sampling_type( inputs, grid );
+        {
+            srdf_format = ( inputs.sampling.fine_factor != 1 );
+            solidification_data_ = sampling_type( inputs, grid, srdf_format );
+        }
     }
 
     // Run the full timestepped loop
@@ -97,16 +101,43 @@ class Layer
         auto owned_space = grid.getIndexSpace();
         fd.solve( exec_space, owned_space, T, T0, beam_power, beam_pos );
 
-        // update boundaries
-        grid.updateBoundaries();
-
         // communicate halos
         grid.gather();
+        // update boundaries
+        grid.updateBoundaries();
 
         solidification_data_.update( grid, time );
     }
 
-    auto getSolidificationData() { return solidification_data_.get(); }
+    auto getSolidificationData( Grid<MemorySpace> grid, MPI_Comm comm,
+                                Sampling sampling_inputs, bool write_data )
+    {
+        return solidification_data_.get( grid, comm, sampling_inputs,
+                                         write_data );
+    }
+
+    [[deprecated( "Use of getLowerSolidificationDataBounds() without a "
+                  "communicator is deprecated." )]] std::array<double, 3>
+    getLowerSolidificationDataBounds()
+    {
+        return solidification_data_.getLowerBounds( MPI_COMM_WORLD );
+    }
+    [[deprecated( "Use of getUpperSolidificationDataBounds() without a "
+                  "communicator is deprecated." )]] std::array<double, 3>
+    getUpperSolidificationDataBounds()
+    {
+        return solidification_data_.getUpperBounds( MPI_COMM_WORLD );
+    }
+
+    std::array<double, 3> getLowerSolidificationDataBounds( MPI_Comm comm )
+    {
+        return solidification_data_.getLowerBounds( comm );
+    }
+    std::array<double, 3> getUpperSolidificationDataBounds( MPI_Comm comm )
+    {
+        return solidification_data_.getUpperBounds( comm );
+    }
+
     // Append next layer's solidification data to input_solidification_data
     void appendSolidificationData(
         Kokkos::View<double**, Kokkos::LayoutLeft, Kokkos::HostSpace>&
@@ -152,32 +183,35 @@ class Layer
             events_prev_layers + events_this_layer;
     }
 
-    auto writeSolidificationData( Sampling sampling_inputs, MPI_Comm comm )
+    auto writeSolidificationData( Grid<memory_space>& grid,
+                                  Sampling sampling_inputs, MPI_Comm comm )
     {
-        return solidification_data_.write( sampling_inputs, comm );
+        return solidification_data_.write( sampling_inputs, grid, comm );
     }
 
-    [[deprecated( "Use of getLowerSolidificationDataBounds() without a "
-                  "communicator is deprecated." )]] std::array<double, 3>
-    getLowerSolidificationDataBounds()
-    {
-        return solidification_data_.getLowerBounds( MPI_COMM_WORLD );
-    }
-    [[deprecated( "Use of getUpperSolidificationDataBounds() without a "
-                  "communicator is deprecated." )]] std::array<double, 3>
-    getUpperSolidificationDataBounds()
-    {
-        return solidification_data_.getUpperBounds( MPI_COMM_WORLD );
-    }
-
-    std::array<double, 3> getLowerSolidificationDataBounds( MPI_Comm comm )
-    {
-        return solidification_data_.getLowerBounds( comm );
-    }
-    std::array<double, 3> getUpperSolidificationDataBounds( MPI_Comm comm )
-    {
-        return solidification_data_.getUpperBounds( comm );
-    }
+    //    [[deprecated( "Use of getLowerSolidificationDataBounds() without a "
+    //                  "communicator is deprecated." )]] std::array<double, 3>
+    //    getLowerSolidificationDataBounds()
+    //    {
+    //        return solidification_data_.getLowerBounds( MPI_COMM_WORLD );
+    //    }
+    //    [[deprecated( "Use of getUpperSolidificationDataBounds() without a "
+    //                  "communicator is deprecated." )]] std::array<double, 3>
+    //    getUpperSolidificationDataBounds()
+    //    {
+    //        return solidification_data_.getUpperBounds( MPI_COMM_WORLD );
+    //    }
+    //
+    //    std::array<double, 3> getLowerSolidificationDataBounds( MPI_Comm comm
+    //    )
+    //    {
+    //        return solidification_data_.getLowerBounds( comm );
+    //    }
+    //    std::array<double, 3> getUpperSolidificationDataBounds( MPI_Comm comm
+    //    )
+    //    {
+    //        return solidification_data_.getUpperBounds( comm );
+    //    }
 };
 
 } // namespace Finch

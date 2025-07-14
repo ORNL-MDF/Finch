@@ -49,7 +49,7 @@ class Grid
         Cabana::Grid::Array<double, entity_type, mesh_type, memory_space>;
     using view_type = typename array_type::view_type;
 
-    int comm_rank, comm_size;
+    int comm_rank, comm_size, num_points_x, num_points_y, num_points_z;
 
     // Construct from components
     Grid( MPI_Comm comm, const double cell_size,
@@ -135,8 +135,29 @@ class Grid
         // Note: this is an entirely separate array on purpose (no shallow copy)
         T0 = Cabana::Grid::createArray<double, memory_space>( name, layout );
 
-        // create halo
-        halo = createHalo( Cabana::Grid::FaceHaloPattern<3>(), halo_width, *T );
+        // create halo - requires second nearest neighbor comm for temperature
+        // data sampling on nodes
+        halo = createHalo( Cabana::Grid::NodeHaloPattern<3>(), halo_width, *T );
+
+        // Size in x, y, z for each MPI rank, not including ghost nodes
+        auto local_mesh = getLocalMesh();
+        num_points_x =
+            std::round( ( local_mesh.highCorner( Cabana::Grid::Own(), 0 ) -
+                          local_mesh.lowCorner( Cabana::Grid::Own(), 0 ) ) /
+                        cell_size ) +
+            1;
+        num_points_y =
+            std::round( ( local_mesh.highCorner( Cabana::Grid::Own(), 1 ) -
+                          local_mesh.lowCorner( Cabana::Grid::Own(), 1 ) ) /
+                        cell_size ) +
+            1;
+        num_points_z =
+            std::round( ( local_mesh.highCorner( Cabana::Grid::Own(), 2 ) -
+                          local_mesh.lowCorner( Cabana::Grid::Own(), 2 ) ) /
+                        cell_size ) +
+            1;
+        Info << "Points per direction: " << num_points_x << ", " << num_points_y
+             << ", " << num_points_z << std::endl;
     }
 
     auto getLocalMesh()

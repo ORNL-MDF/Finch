@@ -105,6 +105,9 @@ struct Sampling
     std::string format;
     std::string directory_name = "solidification";
     bool enabled;
+    int fine_factor = 1;
+    std::array<double, 3> global_low_corner;
+    std::array<double, 3> global_high_corner;
 };
 
 struct TimeMonitor
@@ -471,6 +474,29 @@ class Inputs
         if ( db.contains( "sampling" ) )
         {
             const std::string sampling_type = db["sampling"]["type"];
+            // Refinement factor for heat transport to solidification grids
+            // (defaults to 1)
+            if ( db["sampling"].contains( "fine_factor" ) )
+                sampling.fine_factor = db["sampling"]["fine_factor"];
+            else
+                sampling.fine_factor = 1;
+#ifndef Finch_ENABLE_STORK
+            if ( sampling.fine_factor != 1 )
+                throw std::runtime_error( "Error: Finch must be compiled with "
+                                          "Stork to perform interpolation" );
+#endif
+            // Region used for solidification data collection (defaults to
+            // global domain bounds if not given)
+            if ( db["sampling"].contains( "global_low_corner" ) )
+                sampling.global_low_corner =
+                    db["sampling"]["global_low_corner"];
+            else
+                sampling.global_low_corner = db["space"]["global_low_corner"];
+            if ( db["sampling"].contains( "global_high_corner" ) )
+                sampling.global_high_corner =
+                    db["sampling"]["global_high_corner"];
+            else
+                sampling.global_high_corner = db["space"]["global_high_corner"];
 
             if ( sampling_type == "solidification_data" )
             {
@@ -487,6 +513,14 @@ class Inputs
             else
             {
                 sampling.format = "default";
+                if ( sampling.fine_factor != 1 )
+                {
+                    Info << "Warning: `default` sampling strategy not "
+                            "currently allowed when performing interpolation; "
+                            "`exaca` sampling will be used"
+                         << std::endl;
+                    sampling.format = "exaca";
+                }
             }
 
             if ( db["sampling"].contains( "directory_name" ) )

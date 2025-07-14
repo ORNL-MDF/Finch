@@ -1,12 +1,19 @@
 configure_file(Finch_Core_Config.hpp.cmakein Finch_Core_Config.hpp)
+
+find_package(Stork REQUIRED)
 file(GLOB CORE_HEADERS GLOB *.hpp)
 file(GLOB CORE_BEAM_HEADERS MovingBeam/*.hpp)
 file(GLOB CORE_SOURCE *.cpp MovingBeam/*.cpp)
+# Gather all .cpp files in the include/ directory
+file(GLOB_RECURSE SRC_FILES include/*.cpp)
+
+# Gather all .h/.hpp files in the include/ directory
+file(GLOB_RECURSE INCLUDE_FILES include/*.hpp)
 
 add_library(Core ${CORE_SOURCE})
 add_library(Finch::Core ALIAS Core)
 
-target_link_libraries(Core Cabana::Grid nlohmann_json::nlohmann_json)
+target_link_libraries(Core Cabana::Grid nlohmann_json::nlohmann_json Stork::Stork)
 
 target_include_directories(Core PUBLIC
                            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

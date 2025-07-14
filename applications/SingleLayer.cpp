@@ -48,8 +48,8 @@ void run( int argc, char* argv[] )
     Finch::Layer app( db, grid );
     app.run( exec_space(), db, grid, beam, fd );
 
-    // Write the temperature data used by ExaCA/other post-processing
-    app.writeSolidificationData( db.sampling, grid.getComm() );
+    // Get the solidification data from the simulation and write to file
+    app.getSolidificationData( grid, MPI_COMM_WORLD, db.sampling, true );
     app.getLowerSolidificationDataBounds( grid.getComm() );
     app.getUpperSolidificationDataBounds( grid.getComm() );
 }

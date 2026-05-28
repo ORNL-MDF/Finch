@@ -86,6 +86,15 @@ struct Source
     std::array<double, 3> two_sigma;
     std::array<double, 3> r;
     std::string scan_path_file;
+    // Heat source shape model:
+    //   "gaussian" (default) — original isotropic 3D Gaussian, backwards
+    //   compatible "dynamic"            — super-Gaussian (Coleman et al. 2024),
+    //   requires k and m
+    std::string shape = "gaussian";
+    double k =
+        2.0; // radial distribution parameter (k=2: Gaussian, k->inf: uniform)
+    double m = 2.0; // volumetric shape parameter   (m=1: cone, m=2: ellipsoid,
+                    // m->inf: cylinder)
 };
 
 struct Properties
@@ -230,6 +239,12 @@ class Inputs
         Info << "    Y: " << source.two_sigma[1] << std::endl;
         Info << "    Z: " << source.two_sigma[2] << std::endl;
         Info << "  scan path file: " << source.scan_path_file << std::endl;
+        Info << "  shape: " << source.shape << std::endl;
+        if ( source.shape == "dynamic" )
+        {
+            Info << "  k (radial distribution): " << source.k << std::endl;
+            Info << "  m (volumetric shape):     " << source.m << std::endl;
+        }
 
         // Print solidification output options
         Info << "Sampling:" << std::endl;
@@ -462,6 +477,26 @@ class Inputs
         source.two_sigma[2] = fabs( source.two_sigma[2] );
 
         source.scan_path_file = db["source"]["scan_path_file"];
+
+        // Heat Source Shape Model — optional, defaults to "gaussian" for
+        // backwards compatibility with existing input files
+        source.shape = db["source"].value( "shape", "gaussian" );
+
+        if ( source.shape == "dynamic" )
+        {
+            if ( !db["source"].contains( "k" ) ||
+                 !db["source"].contains( "m" ) )
+                throw std::runtime_error(
+                    "Error: source.shape = \"dynamic\" requires both "
+                    "\"k\" and \"m\" to be specified in the input file." );
+            source.k = db["source"]["k"];
+            source.m = db["source"]["m"];
+        }
+        else if ( source.shape != "gaussian" )
+        {
+            throw std::runtime_error(
+                "Error: source.shape must be \"gaussian\" or \"dynamic\"." );
+        }
     }
 
     void readInputSampling( nlohmann::json db )

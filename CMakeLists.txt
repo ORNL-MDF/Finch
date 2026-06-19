@@ -5,6 +5,10 @@ set(PROJECT_VERSION "0.3.0-dev")
 include(GNUInstallDirs)
 
 find_package(Cabana 0.6.1 REQUIRED COMPONENTS Cabana::Grid)
+option(Finch_ENABLE_STORK OFF "Use Stork interpolation library")
+if (Finch_ENABLE_STORK)
+  find_package(Stork REQUIRED)
+endif()
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
   cmake_policy(SET CMP0135 NEW)

@@ -252,57 +252,81 @@ Two further observations from the `latent_heat = 0` run:
 
 ---
 
-## 5. What is not done
+## 5. TODO
 
-In rough order of value:
+In rough order of value.
 
-1. **Solidification-event sensitivities (G, R, cooling rate).** The highest-value
-   item — these feed ExaCA. Events are currently `View<double**>` and values are
-   projected out. Making them `Scalar`-valued has a useful side effect: the
-   crossing interpolation `m = (temp − liquidus)/(temp − temp0)` becomes a jet,
-   so the solidification *time* carries its own derivative. This is also where
-   the moving-branch caveat above bites hardest, since event capture is itself a
-   threshold test. **Estimate: 1–2 weeks including validation.**
-2. **Beam parameters** (power, scan speed, spot position). Requires
-   `MovingBeam`/`Segment` to become scalar-typed. **3–5 days.**
-3. **GPU build.** cpp_oti_lib's Kokkos/CUDA path is already exercised by its own
-   heat-equation study, and nothing added here is host-only, but it is untested
-   in this combination. **2–4 days, mostly validation.**
-4. **Second order** (`otinum<6,2>` → 28 coefficients) for the parameter Hessian.
-   A one-line change to the driver's typedef; the cost question is the open one.
-   **Days for the change, longer to characterize performance.**
-5. **Sensitivities of `solidus`/`liquidus`** would require handling the branch
-   predicate itself and is a genuinely different problem.
-6. **Upstreaming.** Every change is `Scalar = double`-defaulted and the double
-   path is bit-identical, so existing users see nothing. That is the argument to
-   make to ORNL-MDF.
+### 5.1 Solidification-event sensitivities (G, R, cooling rate)
+
+The highest-value item — these are what feed ExaCA. Events are currently
+`View<double**>` and values are projected out with `Math::value`.
+
+- Make the event view `Scalar`-valued (`nCmpts` stays 9; the coordinate
+  components 0–2 remain geometry).
+- Useful side effect: the crossing interpolation
+  `m = (temp − liquidus)/(temp − temp0)` becomes a jet, so the solidification
+  *time* carries its own derivative rather than being differentiated at a frozen
+  time.
+- Decide what `get()` / `write()` hand downstream — the ExaCA interface is
+  `View<double**>`, so either the derivatives are dropped at the boundary or the
+  format is extended.
+- This is where the moving-branch caveat in §4 bites hardest: event capture is
+  itself a threshold test, and a perturbation that changes the *event count* is
+  invisible to the jet. Needs a defensible answer, not just a number.
+
+### 5.2 Beam parameters
+
+Power, scan speed, spot position. Requires `MovingBeam` and `Segment` to become
+scalar-typed; `beam_pos[3]` then feeds `weight()` and makes `dist_to_beam` a
+jet, which is currently double.
+
+### 5.3 GPU build
+
+cpp_oti_lib's Kokkos/CUDA path is already exercised by its own heat-equation
+study, and nothing added here is host-only, but this combination is untested.
+Mostly a validation exercise. Watch the `DeviceTag` solver overload, which uses
+`(x >= solidus_) * (x <= liquidus_)` arithmetic rather than a branch.
+
+### 5.4 Second order
+
+`otinum<6,2>` → 28 coefficients, giving the full parameter Hessian. A one-line
+change to the driver's typedef. The open question is cost, not correctness;
+this is the regime where `oti::soa_span` may be needed.
+
+### 5.5 Open questions
+
+- **Sensitivities of `solidus` / `liquidus`.** Would require differentiating
+  through the branch predicate itself. A genuinely different problem, not an
+  extension of this work.
+- **Validity / trust region.** `cpp_oti_lib`'s `validity.hpp` exists to quantify
+  over what parameter perturbation the truncated jet is trustworthy. Given §4,
+  applying it here is close to mandatory before these sensitivities are used for
+  optimization or UQ.
+- **Pre-existing UB in `SolidificationData::enabled_`** (§3.3) — upstream's call
+  whether to fix.
+
+### 5.6 Upstreaming
+
+Every change is `Scalar = double`-defaulted and the double path is
+bit-identical, so existing users see nothing. That is the argument to make to
+ORNL-MDF. Would need tests covering a non-double instantiation and a note in the
+docs.
 
 ---
 
-## 6. Revised level of effort
-
-The pre-spike estimate was 2–4 days for a demo and 4–8 weeks for a validated
-version. The demo took well under that. Revising:
-
-| phase | estimate | confidence |
-|---|---|---|
-| ~~Spike: field sensitivities, CPU, validated~~ | **done** | — |
-| Solidification-event sensitivities | 1–2 weeks | medium |
-| Beam parameters | 3–5 days | high |
-| GPU validation | 2–4 days | medium |
-| Performance characterization, higher order | 1 week | low |
-| Upstreamable PR (tests, docs, review cycles) | 1–2 weeks | medium |
-
-**Total to a validated, upstreamable capability: 4–6 weeks**, revised down from
-4–8. The reduction comes from the halo requiring no work at all and from the
-solver templating being smaller than expected.
+## 6. Assessment
 
 The characterization "plug and play" is fair for the **mechanical** integration:
-152 substantive lines, two trivial compile errors, no communication code, and a
-bit-identical double path. It is not fair for the **numerical** part — the 28%
-discrepancy was a real investigation, and the branch-derivative question in §4
-is a genuine open issue that will need a defensible answer before these
-sensitivities are used for optimization or UQ.
+152 substantive lines, two trivial compile errors, no communication code
+written, and a bit-identical double path. The two structural risks that usually
+sink this kind of work — distributed halo exchange and the solver's scalar
+assumptions — cost nothing and less than expected respectively.
+
+It is not fair for the **numerical** part. The 28% discrepancy in §4 was a real
+investigation, and the branch-derivative question it exposed is a genuine open
+issue rather than a solved one. The temperature-field derivatives validated
+cleanly; the quantities that matter most downstream (§5.1) are precisely the
+ones where the caveat is sharpest.
 
 ---
 

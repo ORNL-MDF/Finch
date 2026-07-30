@@ -13,3 +13,7 @@ Cabana/
 *.dat
 *.csv
 path*.txt
+
+# Spike artifacts
+build-baseline/
+spike_runs/

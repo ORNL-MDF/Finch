@@ -18,12 +18,16 @@
 namespace Finch
 {
 
+// Boundary values are field values, so they carry the field scalar type. That
+// makes a Dirichlet or Neumann value differentiable along with everything else
+// when Scalar is an AD type.
+template <typename Scalar = double>
 class Boundary
 {
   public:
     // Constructor with BC types and values
     Boundary( std::array<std::string, 6> types,
-              Kokkos::Array<double, 6> values )
+              Kokkos::Array<Scalar, 6> values )
         : boundary_types( types )
         , boundary_values( values )
     {
@@ -33,7 +37,8 @@ class Boundary
     // Constructor where no values are needed.
     Boundary( std::array<std::string, 6> types )
         : boundary_types( types )
-        , boundary_values( { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 } )
+        , boundary_values( { Scalar( 0 ), Scalar( 0 ), Scalar( 0 ),
+                             Scalar( 0 ), Scalar( 0 ), Scalar( 0 ) } )
     {
         for ( int d = 0; d < 6; d++ )
             if ( boundary_types[d] == "dirichlet" ||
@@ -111,7 +116,7 @@ class Boundary
     //! Boundary types for each plane.
     std::array<std::string, 6> boundary_types;
     //! Boundary values for each plane.
-    Kokkos::Array<double, 6> boundary_values;
+    Kokkos::Array<Scalar, 6> boundary_values;
     //! Boundary types for each plane, converted to int for device.
     Kokkos::Array<int, 6> boundary_int;
     //! Boundary indices for each plane.

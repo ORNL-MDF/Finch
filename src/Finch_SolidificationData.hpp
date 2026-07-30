@@ -31,11 +31,17 @@
 
 #include <Finch_Grid.hpp>
 #include <Finch_Inputs.hpp>
+#include <Finch_Scalar.hpp>
 
 namespace Finch
 {
 
-template <typename MemorySpace>
+// Scalar is the field type of the grid this samples. The recorded events stay
+// double: they are the hand-off format to downstream tools (ExaCA), so the
+// numeric value of each quantity is projected out via Math::value. Carrying
+// derivatives into the event records is a separate, larger change -- it would
+// make the event view Scalar-valued and give sensitivities of G and R.
+template <typename MemorySpace, typename Scalar = double>
 class SolidificationData
 {
     using memory_space = MemorySpace;
@@ -68,7 +74,8 @@ class SolidificationData
     // Default constructor
     SolidificationData() {}
     // constructor
-    SolidificationData( const Inputs& inputs, Grid<memory_space>& grid )
+    SolidificationData( const Inputs& inputs,
+                        Grid<memory_space, Scalar>& grid )
         : mpi_rank_( grid.comm_rank )
         , liquidus_( inputs.properties.liquidus )
         , dt_( inputs.time.time_step )
@@ -87,7 +94,8 @@ class SolidificationData
                            capacity, nCmpts );
 
         auto local_grid = grid.getLocalGrid();
-        using entity_type = typename Grid<memory_space>::entity_type;
+        using entity_type =
+            typename Grid<memory_space, Scalar>::entity_type;
         auto layout =
             Cabana::Grid::createArrayLayout( local_grid, 1, entity_type() );
         auto tm =
@@ -95,20 +103,21 @@ class SolidificationData
         tm_view = tm->view();
     }
 
-    void updateEvents( Grid<memory_space>& grid, const double time )
+    void updateEvents( Grid<memory_space, Scalar>& grid, const double time )
     {
         // get local copies from grid
         auto local_mesh = grid.getLocalMesh();
         auto T = grid.getTemperature();
         auto T0 = grid.getPreviousTemperature();
 
-        using entity_type = typename Grid<memory_space>::entity_type;
+        using entity_type =
+            typename Grid<memory_space, Scalar>::entity_type;
 
         Cabana::Grid::grid_parallel_for(
             "local_grid_for", exec_space(), grid.getIndexSpace(),
             KOKKOS_CLASS_LAMBDA( const int i, const int j, const int k ) {
-                double temp = T( i, j, k, 0 );
-                double temp0 = T0( i, j, k, 0 );
+                Scalar temp = T( i, j, k, 0 );
+                Scalar temp0 = T0( i, j, k, 0 );
 
                 if ( ( temp <= liquidus_ ) && ( temp0 > liquidus_ ) )
                 {
@@ -129,38 +138,42 @@ class SolidificationData
                         events( current_count, 3 ) = tm_view( i, j, k, 0 );
 
                         // event solidification time
-                        double m = ( temp - liquidus_ ) / ( temp - temp0 );
-                        m = fmin( fmax( m, 0.0 ), 1.0 );
-                        events( current_count, 4 ) = time - m * dt_;
+                        Scalar m = ( temp - liquidus_ ) / ( temp - temp0 );
+                        m = Math::fmin( Math::fmax( m, Scalar( 0 ) ),
+                                        Scalar( 1 ) );
+                        events( current_count, 4 ) =
+                            time - Math::value( m ) * dt_;
 
                         // cooling rate
-                        events( current_count, 5 ) = ( temp0 - temp ) / dt_;
+                        events( current_count, 5 ) =
+                            Math::value( ( temp0 - temp ) / dt_ );
 
                         // temperature gradient components
-                        events( current_count, 6 ) =
+                        events( current_count, 6 ) = Math::value(
                             ( T( i + 1, j, k, 0 ) - T( i - 1, j, k, 0 ) ) /
-                            ( 2.0 * cell_size_ );
+                            ( 2.0 * cell_size_ ) );
 
-                        events( current_count, 7 ) =
+                        events( current_count, 7 ) = Math::value(
                             ( T( i, j + 1, k, 0 ) - T( i, j - 1, k, 0 ) ) /
-                            ( 2.0 * cell_size_ );
+                            ( 2.0 * cell_size_ ) );
 
-                        events( current_count, 8 ) =
+                        events( current_count, 8 ) = Math::value(
                             ( T( i, j, k + 1, 0 ) - T( i, j, k - 1, 0 ) ) /
-                            ( 2.0 * cell_size_ );
+                            ( 2.0 * cell_size_ ) );
                     }
                 }
                 else if ( ( temp > liquidus_ ) && ( temp0 <= liquidus_ ) )
                 {
-                    double m = ( temp - liquidus_ ) / ( temp - temp0 );
-                    m = fmin( fmax( m, 0.0 ), 1.0 );
-                    tm_view( i, j, k, 0 ) = time - m * dt_;
+                    Scalar m = ( temp - liquidus_ ) / ( temp - temp0 );
+                    m = Math::fmin( Math::fmax( m, Scalar( 0 ) ),
+                                    Scalar( 1 ) );
+                    tm_view( i, j, k, 0 ) = time - Math::value( m ) * dt_;
                 }
             } );
     }
 
     // Update the solidification data
-    void update( Grid<memory_space>& grid, const double time )
+    void update( Grid<memory_space, Scalar>& grid, const double time )
     {
         if ( !enabled_ )
         {

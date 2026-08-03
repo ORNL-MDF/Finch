@@ -6,13 +6,14 @@ Finite difference heat transfer using Cabana for additive manufacturing
 
 |Dependency | Version  | Required | Details|
 |---------- | -------  |--------  |------- |
-|CMake      | 3.12+    | Yes      | Build system
-|[Cabana](https://github.com/ECP-copa/Cabana) | 0.6.1  | Yes | Performance portable particle/grid library
+|CMake      | 3.16+    | Yes      | Build system
+|[Kokkos](https://github.com/kokkos/kokkos) | 4.6.02 | Yes | Performance-portable execution and memory model
+|[Cabana](https://github.com/ECP-copa/Cabana) | 0.8.0  | Yes | Performance portable particle/grid library
 |[json](https://github.com/nlohmann/json)     | 3.10+   | Yes | Input files
 
 
 ## Build Finch
-Building Finch requires Cabana, Kokkos & MPI (Cabana dependencies), and json (for input files). A simple example for building on CPU is shown below.
+Building Finch requires Cabana 0.8.0, Kokkos 4.6.02, MPI, a C++17 compiler, and json. A simple CPU build is shown below. Select the required Kokkos backend and architecture when building for CUDA, HIP, or SYCL; Finch uses the resulting `Kokkos::DefaultExecutionSpace` without backend-specific source changes.
 
 ```
 # First build Kokkos.
@@ -24,6 +25,7 @@ pushd build
 cmake \
     -D CMAKE_INSTALL_PREFIX=install \
     -D CMAKE_BUILD_TYPE="Release" \
+    -D Kokkos_ENABLE_OPENMP=ON \
     .. ;
 make -j install
 popd
@@ -54,11 +56,21 @@ mkdir build
 pushd build
 cmake \
   -D CMAKE_BUILD_TYPE="Release" \
-  -D CMAKE_PREFIX_PATH="$CABANA_DIR/build/install" \
+  -D CMAKE_PREFIX_PATH="$KOKKOS_DIR/build/install;$CABANA_DIR/build/install" \
   -D CMAKE_INSTALL_PREFIX=install \
   .. ;
 make -j install
 ```
+
+Distributed accelerator runs pass Cabana's device-resident halo buffers
+directly to MPI. They therefore require a GPU-aware MPI deployment. After
+verifying that support, set `FINCH_GPU_AWARE_MPI=1` for multi-rank accelerator
+runs. Single-rank accelerator and ordinary CPU MPI runs do not require it.
+
+Finch labels its timestep, diffusion, heat-source, physical-boundary, halo,
+sampling, and output regions for Kokkos Tools. Every run also reports aggregate
+wall time and node-update throughput suitable for strong- and weak-scaling
+comparisons.
 
 ## Run Finch
 

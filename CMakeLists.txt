@@ -1,10 +1,15 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.16)
 project(Finch LANGUAGES CXX C)
 set(PROJECT_VERSION "0.3.0-dev")
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 include(GNUInstallDirs)
 
-find_package(Cabana 0.6.1 REQUIRED COMPONENTS Cabana::Grid)
+find_package(Kokkos 4.6.2 EXACT REQUIRED)
+find_package(Cabana 0.8.0 EXACT REQUIRED COMPONENTS Cabana::Grid)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
   cmake_policy(SET CMP0135 NEW)

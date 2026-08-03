@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: kokkos/kokkos
-          ref: develop
+          ref: 4.6.02
           path: kokkos
       - name: Build kokkos
         working-directory: kokkos
@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: ECP-CoPA/Cabana
-          ref: master
+          ref: 0.8.0
           path: cabana
       - name: Build Cabana
         working-directory: cabana
@@ -52,7 +52,7 @@ jobs:
         run: |
           cmake -B build \
             -D CMAKE_INSTALL_PREFIX=$HOME/finch \
-            -D CMAKE_PREFIX_PATH="$HOME/cabana" \
+            -D CMAKE_PREFIX_PATH="$HOME/kokkos;$HOME/cabana" \
             -D CMAKE_BUILD_TYPE=Debug \
             ${{ github.event.inputs.cmake_args }}
           cmake --build build --parallel 2

@@ -12,4 +12,5 @@ Cabana/
 *.bov
 *.dat
 *.csv
+!performance-study/*.csv
 path*.txt

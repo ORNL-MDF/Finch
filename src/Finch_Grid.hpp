@@ -17,6 +17,12 @@
 #ifndef Grid_H
 #define Grid_H
 
+#include <array>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <utility>
+
 #include <Cabana_Grid.hpp>
 #include <Kokkos_Core.hpp>
 
@@ -56,8 +62,10 @@ class Grid
           std::array<double, 3> global_low_corner,
           std::array<double, 3> global_high_corner,
           std::array<int, 3> ranks_per_dim, std::array<std::string, 6> bc_types,
-          Kokkos::Array<double, 6> bc_values, const double initial_temperature )
-        : boundary( Boundary( bc_types, bc_values ) )
+          Kokkos::Array<double, 6> bc_values, const double initial_temperature,
+          const exec_space& execution_space = exec_space{} )
+        : exec_space_( execution_space )
+        , boundary( Boundary( bc_types, bc_values, cell_size ) )
     {
         initialize( comm, cell_size, global_low_corner, global_high_corner,
                     ranks_per_dim, initial_temperature );
@@ -75,8 +83,10 @@ class Grid
           std::array<double, 3> global_low_corner,
           std::array<double, 3> global_high_corner,
           std::array<int, 3> ranks_per_dim, std::array<std::string, 6> bc_types,
-          const double initial_temperature )
-        : boundary( Boundary( bc_types ) )
+          const double initial_temperature,
+          const exec_space& execution_space = exec_space{} )
+        : exec_space_( execution_space )
+        , boundary( Boundary( bc_types, cell_size ) )
     {
         initialize( comm, cell_size, global_low_corner, global_high_corner,
                     ranks_per_dim, initial_temperature );
@@ -126,14 +136,15 @@ class Grid
         auto layout =
             createArrayLayout( global_grid, halo_width, 1, entity_type() );
 
-        std::string name( "temperature" );
-        T = Cabana::Grid::createArray<double, memory_space>( name, layout );
+        T = Cabana::Grid::createArray<double, memory_space>( "temperature",
+                                                             layout );
         Cabana::Grid::ArrayOp::assign( *T, initial_temperature,
                                        Cabana::Grid::Ghost() );
 
         // create an array to store previous temperature for explicit update
         // Note: this is an entirely separate array on purpose (no shallow copy)
-        T0 = Cabana::Grid::createArray<double, memory_space>( name, layout );
+        T0 = Cabana::Grid::createArray<double, memory_space>( "temperature",
+                                                              layout );
 
         // create halo
         halo = createHalo( Cabana::Grid::FaceHaloPattern<3>(), halo_width, *T );
@@ -156,6 +167,12 @@ class Grid
 
     auto getPreviousTemperature() { return T0->view(); }
 
+    const exec_space& executionSpace() const { return exec_space_; }
+
+    // Start a new explicit step without copying the field. After the swap T0
+    // is the completed previous state and T is the reusable output buffer.
+    void swapTemperatureFields() { std::swap( T, T0 ); }
+
     void output( const int step, const double time )
     {
         Cabana::Grid::Experimental::BovWriter::writeTimeStep( step, time, *T );
@@ -163,15 +180,24 @@ class Grid
 
     void updateBoundaries()
     {
+        Kokkos::Profiling::ScopedRegion region( "Finch::physical_boundaries" );
         auto T_view = getTemperature();
-        boundary.update( exec_space{}, T_view );
+        boundary.update( exec_space_, T_view );
     }
 
-    void gather() { halo->gather( exec_space{}, *T ); }
+    void gather()
+    {
+        Kokkos::Profiling::ScopedRegion region( "Finch::halo_exchange" );
+        halo->gather( exec_space_, *T );
+    }
 
     MPI_Comm getComm() { return local_grid->globalGrid().comm(); }
 
   protected:
+    // A single ordered execution-space instance is used for all operations on
+    // this grid, including Cabana packing and unpacking.
+    exec_space exec_space_;
+
     // Halo and stencil width;
     unsigned halo_width = 1;
 

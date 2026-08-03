@@ -1,5 +1,5 @@
-file(GLOB SCANPATH_HEADERS GLOB *.hpp)
-file(GLOB SCANPATH_SOURCE GLOB Finch_CreateScanPaths.cpp)
+file(GLOB SCANPATH_HEADERS *.hpp)
+file(GLOB SCANPATH_SOURCE Finch_CreateScanPaths.cpp)
 
 add_library(ScanPaths INTERFACE)
 add_library(Finch::ScanPaths ALIAS ScanPaths)

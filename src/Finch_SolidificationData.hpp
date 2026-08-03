@@ -18,13 +18,17 @@
 #ifndef SolidificationData_H
 #define SolidificationData_H
 
+#include <algorithm>
 #include <array>
 #include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <limits>
 #include <math.h>
 #include <mpi.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include <utility>
 
 #include <Cabana_Grid.hpp>
 #include <Kokkos_Core.hpp>
@@ -48,17 +52,21 @@ class SolidificationData
 
   private:
     // Needed for file output
-    int mpi_rank_;
-    double liquidus_;
-    double dt_;
-    double cell_size_;
-    bool enabled_;
+    int mpi_rank_ = 0;
+    double liquidus_ = 0.0;
+    double cell_size_ = 0.0;
+    bool enabled_ = false;
+
+    exec_space exec_space_;
 
     view_int count;
+    Kokkos::View<int*, Kokkos::HostSpace> count_host;
 
-    int capacity;
+    int count_cached = 0;
 
-    int nCmpts;
+    int capacity = 0;
+
+    int nCmpts = 9;
 
     view_double2D events;
 
@@ -66,22 +74,31 @@ class SolidificationData
 
   public:
     // Default constructor
-    SolidificationData() {}
+    SolidificationData() = default;
     // constructor
     SolidificationData( const Inputs& inputs, Grid<memory_space>& grid )
         : mpi_rank_( grid.comm_rank )
         , liquidus_( inputs.properties.liquidus )
-        , dt_( inputs.time.time_step )
         , cell_size_( inputs.space.cell_size )
         , enabled_( inputs.sampling.enabled )
+        , exec_space_( grid.executionSpace() )
     {
         count = view_int( "count", 1 );
+        count_host = Kokkos::View<int*, Kokkos::HostSpace>( "count_host", 1 );
+        Kokkos::deep_copy( exec_space_, count, 0 );
 
-        capacity = round( grid.getIndexSpace().size() );
+        const auto owned_size = grid.getIndexSpace().size();
+        if ( owned_size > std::numeric_limits<int>::max() )
+            throw std::runtime_error(
+                "Local grid is too large for solidification event indexing" );
+        // Most domains melt only in a compact region. Start with a bounded
+        // fraction of the local grid and grow on demand instead of reserving
+        // nine doubles for every local node.
+        const auto initial_capacity = std::min<long>(
+            owned_size, std::max<long>( 1024, owned_size / 64 ) );
+        capacity = std::max<int>( 1, static_cast<int>( initial_capacity ) );
 
         // components: x, y, z, tm, ts, R, Gx, Gy, Gz
-        nCmpts = 9;
-
         events =
             view_double2D( Kokkos::ViewAllocateWithoutInitializing( "events" ),
                            capacity, nCmpts );
@@ -93,128 +110,147 @@ class SolidificationData
         auto tm =
             Cabana::Grid::createArray<double, memory_space>( "tm", layout );
         tm_view = tm->view();
+        Kokkos::deep_copy( exec_space_, tm_view, inputs.time.start_time );
     }
 
-    void updateEvents( Grid<memory_space>& grid, const double time )
+    void updateEvents( Grid<memory_space>& grid, const double time,
+                       const double dt )
     {
         // get local copies from grid
         auto local_mesh = grid.getLocalMesh();
         auto T = grid.getTemperature();
         auto T0 = grid.getPreviousTemperature();
+        auto count_view = count;
+        auto events_view = events;
+        auto melting_time_view = tm_view;
+        const double liquidus = liquidus_;
+        const double cell_size = cell_size_;
+        const int event_capacity = capacity;
 
         using entity_type = typename Grid<memory_space>::entity_type;
 
         Cabana::Grid::grid_parallel_for(
-            "local_grid_for", exec_space(), grid.getIndexSpace(),
-            KOKKOS_CLASS_LAMBDA( const int i, const int j, const int k ) {
+            "Finch::solidification_detection", exec_space_,
+            grid.getIndexSpace(),
+            KOKKOS_LAMBDA( const int i, const int j, const int k ) {
                 double temp = T( i, j, k, 0 );
                 double temp0 = T0( i, j, k, 0 );
 
-                if ( ( temp <= liquidus_ ) && ( temp0 > liquidus_ ) )
+                if ( ( temp <= liquidus ) && ( temp0 > liquidus ) )
                 {
                     int current_count =
-                        Kokkos::atomic_fetch_add( &count( 0 ), 1 );
+                        Kokkos::atomic_fetch_add( &count_view( 0 ), 1 );
 
-                    if ( current_count < capacity )
+                    if ( current_count < event_capacity )
                     {
                         // event coordinates
                         double pt[3];
                         int idx[3] = { i, j, k };
                         local_mesh.coordinates( entity_type(), idx, pt );
-                        events( current_count, 0 ) = pt[0];
-                        events( current_count, 1 ) = pt[1];
-                        events( current_count, 2 ) = pt[2];
+                        events_view( current_count, 0 ) = pt[0];
+                        events_view( current_count, 1 ) = pt[1];
+                        events_view( current_count, 2 ) = pt[2];
 
                         // event melting time
-                        events( current_count, 3 ) = tm_view( i, j, k, 0 );
+                        events_view( current_count, 3 ) =
+                            melting_time_view( i, j, k, 0 );
 
                         // event solidification time
-                        double m = ( temp - liquidus_ ) / ( temp - temp0 );
+                        double m = ( temp - liquidus ) / ( temp - temp0 );
                         m = fmin( fmax( m, 0.0 ), 1.0 );
-                        events( current_count, 4 ) = time - m * dt_;
+                        events_view( current_count, 4 ) = time - m * dt;
 
                         // cooling rate
-                        events( current_count, 5 ) = ( temp0 - temp ) / dt_;
+                        events_view( current_count, 5 ) = ( temp0 - temp ) / dt;
 
                         // temperature gradient components
-                        events( current_count, 6 ) =
+                        events_view( current_count, 6 ) =
                             ( T( i + 1, j, k, 0 ) - T( i - 1, j, k, 0 ) ) /
-                            ( 2.0 * cell_size_ );
+                            ( 2.0 * cell_size );
 
-                        events( current_count, 7 ) =
+                        events_view( current_count, 7 ) =
                             ( T( i, j + 1, k, 0 ) - T( i, j - 1, k, 0 ) ) /
-                            ( 2.0 * cell_size_ );
+                            ( 2.0 * cell_size );
 
-                        events( current_count, 8 ) =
+                        events_view( current_count, 8 ) =
                             ( T( i, j, k + 1, 0 ) - T( i, j, k - 1, 0 ) ) /
-                            ( 2.0 * cell_size_ );
+                            ( 2.0 * cell_size );
                     }
                 }
-                else if ( ( temp > liquidus_ ) && ( temp0 <= liquidus_ ) )
+                else if ( ( temp > liquidus ) && ( temp0 <= liquidus ) )
                 {
-                    double m = ( temp - liquidus_ ) / ( temp - temp0 );
+                    double m = ( temp - liquidus ) / ( temp - temp0 );
                     m = fmin( fmax( m, 0.0 ), 1.0 );
-                    tm_view( i, j, k, 0 ) = time - m * dt_;
+                    melting_time_view( i, j, k, 0 ) = time - m * dt;
                 }
             } );
     }
 
     // Update the solidification data
-    void update( Grid<memory_space>& grid, const double time )
+    void update( Grid<memory_space>& grid, const double time, const double dt )
     {
         if ( !enabled_ )
         {
             return;
         }
 
-        auto count_old_host =
-            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
+        Kokkos::Profiling::ScopedRegion region(
+            "Finch::solidification_sampling" );
+        updateEvents( grid, time, dt );
 
-        updateEvents( grid, time );
-
-        auto count_host =
-            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
+        // This is the sole synchronization needed by event collection in a
+        // timestep. Keep the prior count cached on the host so an overflow can
+        // be replayed without copying the counter before the kernel.
+        Kokkos::deep_copy( exec_space_, count_host, count );
+        exec_space_.fence( "Finch solidification count" );
 
         int new_count = count_host( 0 );
 
         // more events were added than the current view capacity.
         // resize view and update events starting from the previous counter.
-        if ( new_count >= capacity )
+        if ( new_count > capacity )
         {
-            capacity = 2.0 * new_count;
+            capacity = std::max( 2 * capacity, new_count );
 
             Kokkos::resize( Kokkos::WithoutInitializing, events, capacity,
                             nCmpts );
 
-            Kokkos::deep_copy( count, count_old_host( 0 ) );
+            Kokkos::deep_copy( exec_space_, count, count_cached );
 
-            updateEvents( grid, time );
+            updateEvents( grid, time, dt );
         }
 
         // view size is within 90% of capacity. double current size.
-        else if ( new_count / capacity > 0.9 )
+        else if ( static_cast<double>( new_count ) /
+                      static_cast<double>( capacity ) >
+                  0.9 )
         {
-            capacity = 2.0 * new_count;
+            capacity = std::max( 2 * capacity, new_count + 1 );
 
             Kokkos::resize( Kokkos::WithoutInitializing, events, capacity,
                             nCmpts );
         }
+        count_cached = new_count;
     }
 
     // Return all data for the events that have been recorded during the
     // simulation
     auto get()
     {
-        auto events_host =
-            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), events );
-        auto count_host =
-            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
-        // Resize the host copy so only valid events get copied.
-        Kokkos::resize( events_host, count_host( 0 ), nCmpts );
+        if ( !enabled_ )
+            return view_type_coupled(
+                Kokkos::ViewAllocateWithoutInitializing( "copied_data" ), 0,
+                nCmpts );
+
+        auto valid_events = Kokkos::subview(
+            events, std::make_pair( 0, count_cached ), Kokkos::ALL );
+        auto events_host = Kokkos::create_mirror_view( valid_events );
+        Kokkos::deep_copy( exec_space_, events_host, valid_events );
+        exec_space_.fence( "Finch copy solidification events" );
         // Create a View on the host with fixed layout for coupling.
         view_type_coupled copied_data(
             Kokkos::ViewAllocateWithoutInitializing( "copied_data" ),
-            count_host( 0 ), nCmpts );
+            count_cached, nCmpts );
         Kokkos::deep_copy( copied_data, events_host );
         return copied_data;
     }
@@ -230,27 +266,48 @@ class SolidificationData
         std::chrono::high_resolution_clock::time_point
             start_solidification_print_time =
                 std::chrono::high_resolution_clock::now();
-        auto events_host =
-            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), events );
+        auto valid_events = Kokkos::subview(
+            events, std::make_pair( 0, count_cached ), Kokkos::ALL );
+        auto events_host = Kokkos::create_mirror_view( valid_events );
+        Kokkos::deep_copy( exec_space_, events_host, valid_events );
+        exec_space_.fence( "Finch copy solidification events for output" );
 
-        auto count_host =
-            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
-
-        // create directory is not present, otherwise overwrite existing files
-        if ( mkdir( sampling_inputs.directory_name.c_str(), 0777 ) != -1 )
+        // Create a shared output directory once, before any rank opens files.
+        int directory_error = 0;
+        if ( mpi_rank_ == 0 )
         {
-            std::cout << "Creating directory: "
-                      << sampling_inputs.directory_name << std::endl;
+            std::error_code ec;
+            std::filesystem::create_directories( sampling_inputs.directory_name,
+                                                 ec );
+            if ( ec )
+            {
+                std::cerr << "Cannot create solidification directory "
+                          << sampling_inputs.directory_name << ": "
+                          << ec.message() << std::endl;
+                directory_error = 1;
+            }
         }
+        MPI_Bcast( &directory_error, 1, MPI_INT, 0, comm );
+        if ( directory_error )
+            throw std::runtime_error(
+                "Unable to create solidification output directory" );
+        MPI_Barrier( comm );
 
         std::ofstream fout;
         std::string filename( sampling_inputs.directory_name + "/data_" +
                               std::to_string( mpi_rank_ ) + ".csv" );
 
         fout.open( filename );
+        int local_file_error = !fout;
+        int global_file_error = 0;
+        MPI_Allreduce( &local_file_error, &global_file_error, 1, MPI_INT,
+                       MPI_MAX, comm );
+        if ( global_file_error )
+            throw std::runtime_error( "Cannot open solidification output " +
+                                      filename );
         fout << std::fixed << std::setprecision( 10 );
 
-        for ( int n = 0; n < count_host( 0 ); n++ )
+        for ( int n = 0; n < count_cached; n++ )
         {
             fout << events_host( n, 0 ) << "," << events_host( n, 1 ) << ","
                  << events_host( n, 2 ) << "," << events_host( n, 3 ) << ","
@@ -262,7 +319,7 @@ class SolidificationData
                      << "," << events_host( n, 8 );
             }
 
-            fout << std::endl;
+            fout << '\n';
         }
 
         fout.close();
@@ -281,38 +338,37 @@ class SolidificationData
 
     std::array<double, 3> getLowerBounds( MPI_Comm comm )
     {
-        // Local copies for lambda capture
-        auto events_ = events;
-        auto count_host =
-            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
+        if ( !enabled_ )
+        {
+            std::array<double, 3> bounds;
+            bounds.fill( std::numeric_limits<double>::quiet_NaN() );
+            return bounds;
+        }
 
-        // Iterate over list of events, getting the min bounds in each direction
-        double x_min, y_min, z_min;
-        Kokkos::parallel_reduce(
-            "solidification_event_bounds", count_host( 0 ),
-            KOKKOS_LAMBDA( const int& n, double& x_min_th, double& y_min_th,
-                           double& z_min_th ) {
-                double x_event = events_( n, 0 );
-                double y_event = events_( n, 1 );
-                double z_event = events_( n, 2 );
-                if ( x_event < x_min_th )
-                    x_min_th = x_event;
-                if ( y_event < y_min_th )
-                    y_min_th = y_event;
-                if ( z_event < z_min_th )
-                    z_min_th = z_event;
-            },
-            Kokkos::Min<double>( x_min ), Kokkos::Min<double>( y_min ),
-            Kokkos::Min<double>( z_min ) );
+        auto data = get();
+        std::array<double, 3> local = {
+            std::numeric_limits<double>::infinity(),
+            std::numeric_limits<double>::infinity(),
+            std::numeric_limits<double>::infinity() };
+        for ( int n = 0; n < count_cached; ++n )
+            for ( int d = 0; d < 3; ++d )
+                local[d] = std::min( local[d], data( n, d ) );
 
-        // Get the min bounds on each direction across all ranks
+        int global_count = 0;
+        MPI_Allreduce( &count_cached, &global_count, 1, MPI_INT, MPI_SUM,
+                       comm );
         std::array<double, 3> data_bounds_low;
-        MPI_Allreduce( &x_min, &data_bounds_low[0], 1, MPI_DOUBLE, MPI_MIN,
-                       comm );
-        MPI_Allreduce( &y_min, &data_bounds_low[1], 1, MPI_DOUBLE, MPI_MIN,
-                       comm );
-        MPI_Allreduce( &z_min, &data_bounds_low[2], 1, MPI_DOUBLE, MPI_MIN,
-                       comm );
+        MPI_Allreduce( local.data(), data_bounds_low.data(), 3, MPI_DOUBLE,
+                       MPI_MIN, comm );
+
+        if ( global_count == 0 )
+        {
+            data_bounds_low.fill( std::numeric_limits<double>::quiet_NaN() );
+            if ( mpi_rank_ == 0 )
+                std::cout << "No melted/resolidified region was recorded."
+                          << std::endl;
+            return data_bounds_low;
+        }
 
         if ( mpi_rank_ == 0 )
         {
@@ -328,38 +384,34 @@ class SolidificationData
 
     std::array<double, 3> getUpperBounds( MPI_Comm comm )
     {
-        // Local copies for lambda capture
-        auto events_ = events;
-        auto count_host =
-            Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), count );
+        if ( !enabled_ )
+        {
+            std::array<double, 3> bounds;
+            bounds.fill( std::numeric_limits<double>::quiet_NaN() );
+            return bounds;
+        }
 
-        // Iterate over list of events, getting the max bounds in each direction
-        double x_max, y_max, z_max;
-        Kokkos::parallel_reduce(
-            "solidification_event_bounds", count_host( 0 ),
-            KOKKOS_LAMBDA( const int& n, double& x_max_th, double& y_max_th,
-                           double& z_max_th ) {
-                double x_event = events_( n, 0 );
-                double y_event = events_( n, 1 );
-                double z_event = events_( n, 2 );
-                if ( x_event > x_max_th )
-                    x_max_th = x_event;
-                if ( y_event > y_max_th )
-                    y_max_th = y_event;
-                if ( z_event > z_max_th )
-                    z_max_th = z_event;
-            },
-            Kokkos::Max<double>( x_max ), Kokkos::Max<double>( y_max ),
-            Kokkos::Max<double>( z_max ) );
+        auto data = get();
+        std::array<double, 3> local = {
+            -std::numeric_limits<double>::infinity(),
+            -std::numeric_limits<double>::infinity(),
+            -std::numeric_limits<double>::infinity() };
+        for ( int n = 0; n < count_cached; ++n )
+            for ( int d = 0; d < 3; ++d )
+                local[d] = std::max( local[d], data( n, d ) );
 
-        // Get the min/max bounds on each direction across all ranks
+        int global_count = 0;
+        MPI_Allreduce( &count_cached, &global_count, 1, MPI_INT, MPI_SUM,
+                       comm );
         std::array<double, 3> data_bounds_high;
-        MPI_Allreduce( &x_max, &data_bounds_high[0], 1, MPI_DOUBLE, MPI_MAX,
-                       comm );
-        MPI_Allreduce( &y_max, &data_bounds_high[1], 1, MPI_DOUBLE, MPI_MAX,
-                       comm );
-        MPI_Allreduce( &z_max, &data_bounds_high[2], 1, MPI_DOUBLE, MPI_MAX,
-                       comm );
+        MPI_Allreduce( local.data(), data_bounds_high.data(), 3, MPI_DOUBLE,
+                       MPI_MAX, comm );
+
+        if ( global_count == 0 )
+        {
+            data_bounds_high.fill( std::numeric_limits<double>::quiet_NaN() );
+            return data_bounds_high;
+        }
 
         if ( mpi_rank_ == 0 )
         {

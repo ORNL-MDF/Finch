@@ -14,6 +14,9 @@
   \brief Define the scan path strategy for additive manufacturing
 */
 
+#ifndef Finch_CreateScanPaths_H
+#define Finch_CreateScanPaths_H
+
 #include <algorithm>
 #include <cmath>
 #include <fstream>
@@ -21,6 +24,7 @@
 #include <iostream>
 #include <limits>
 #include <sstream>
+#include <stdexcept>
 #include <unistd.h>
 #include <vector>
 
@@ -49,7 +53,8 @@ struct Point
     // Function to rotate a point around a specified origin by a given angle
     Point rotate( const Point& origin, double degrees ) const
     {
-        double angle = degrees * ( M_PI / 180.0 );
+        constexpr double pi = 3.141592653589793238462643383279502884;
+        double angle = degrees * ( pi / 180.0 );
 
         double s = sin( angle );
         double c = cos( angle );
@@ -69,7 +74,7 @@ struct Point
 };
 
 // Function to calculate the distance between two points
-double distance( const Point& p1, const Point& p2 )
+inline double distance( const Point& p1, const Point& p2 )
 {
     double dx = p1.x - p2.x;
     double dy = p1.y - p2.y;
@@ -102,7 +107,7 @@ struct Line
         end = end.rotate( origin, angle );
     }
 
-    bool isFinite()
+    bool isFinite() const
     {
         return ( !std::isnan( start.x ) && !std::isnan( start.y ) &&
                  !std::isnan( end.x ) && !std::isnan( end.y ) );
@@ -143,7 +148,7 @@ struct boundBox
     }
 
     // Function to check if a point is inside the bounding box
-    bool isInside( Point p )
+    bool isInside( Point p ) const
     {
         return p.x >= minPoint.x && p.x <= maxPoint.x && p.y >= minPoint.y &&
                p.y <= maxPoint.y;
@@ -230,19 +235,23 @@ struct boundBox
 struct Path
 {
     std::vector<Line> lines;
-    double power;
-    double speed;
-    double dwell_time;
+    double power = 0.0;
+    double speed = 0.0;
+    double dwell_time = 0.0;
 
     // Construct the path from a bounding box and hatch spacing
     Path( boundBox bbox, double step, double angle )
     {
+        if ( !std::isfinite( step ) || step <= 0.0 || !std::isfinite( angle ) )
+            throw std::runtime_error(
+                "Hatch spacing must be positive and angle must be finite" );
+
         int numLines = numberOfLines( bbox, step );
 
         // create a pad of infinitely long, equally parallel lines
         std::vector<Line> pathLines;
 
-        const float great = 1e10;
+        const double great = 1e10;
 
         // Create lines in the negative direction, excluding the midpoint line
         for ( int i = numLines - 1; i > 0; --i )
@@ -279,18 +288,12 @@ struct Path
     // Function to find the number of scan vectors in the bounding box
     int numberOfLines( const boundBox& bbox, double step ) const
     {
-        int nX = 0;
-        int nY = 0;
-
-        for ( double x = bbox.minPoint.x; x <= bbox.maxPoint.x; x += step )
-        {
-            nX++;
-        }
-
-        for ( double y = bbox.minPoint.y; y <= bbox.maxPoint.y; y += step )
-        {
-            nY++;
-        }
+        const int nX = static_cast<int>( std::floor(
+                           ( bbox.maxPoint.x - bbox.minPoint.x ) / step ) ) +
+                       1;
+        const int nY = static_cast<int>( std::floor(
+                           ( bbox.maxPoint.y - bbox.minPoint.y ) / step ) ) +
+                       1;
 
         return ( nX > nY ) ? nX : nY;
     }
@@ -299,8 +302,11 @@ struct Path
                 const bool bi_direction = true ) const
     {
         std::ofstream file( filename );
+        if ( !file )
+            throw std::runtime_error( "Cannot open scan-path output file " +
+                                      filename );
 
-        file << "Mode\tX(m)\tY(m)\tZ(m)\tPower(W)\ttParam" << std::endl;
+        file << "Mode\tX(m)\tY(m)\tZ(m)\tPower(W)\ttParam\n";
 
         for ( size_t i = 0; i < lines.size(); ++i )
         {
@@ -338,3 +344,5 @@ struct Path
 };
 
 } // namespace Finch
+
+#endif

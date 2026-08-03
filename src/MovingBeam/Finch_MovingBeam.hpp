@@ -19,6 +19,9 @@
 
 #include "MovingBeam/Finch_Segment.hpp"
 
+#include <array>
+#include <mpi.h>
+#include <string>
 #include <vector>
 
 namespace Finch
@@ -37,7 +40,7 @@ class MovingBeam
     int index_;
 
     //! current position of moving beam
-    std::vector<double> position_;
+    std::array<double, 3> position_;
 
     //! current power of moving beam
     double power_;
@@ -45,15 +48,19 @@ class MovingBeam
     //! end time of path
     double endTime_;
 
+    //! most recent time supplied to move()
+    double current_time_;
+
+    //! communicator used to distribute scan-path input, or MPI_COMM_NULL
+    MPI_Comm comm_;
+
     //! tolerance for scan path intervals
     static constexpr double eps = 1e-10;
 
   public:
     //! Default constructor
-    MovingBeam( const std::string scan_path_file );
-
-    //! Destructor
-    virtual ~MovingBeam() {}
+    explicit MovingBeam( const std::string& scan_path_file,
+                         MPI_Comm comm = MPI_COMM_NULL );
 
     //! Read the path file
     void readPath();
@@ -65,16 +72,16 @@ class MovingBeam
     int findIndex( const double time );
 
     //! Returns true if the simulation time is less than path endTime
-    bool activePath();
+    bool activePath() const;
 
     //! Return the current path index
     int index() const { return index_; }
 
     //! Return end time of path
-    int endTime() const { return endTime_; }
+    double endTime() const { return endTime_; }
 
     //! Return current position of the moving beam
-    std::vector<double> position() const { return position_; }
+    const std::array<double, 3>& position() const { return position_; }
 
     //! Return current position component of the moving beam
     double position( const int dir ) const { return position_[dir]; }

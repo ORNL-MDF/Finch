@@ -12,6 +12,12 @@
 #ifndef Layer_H
 #define Layer_H
 
+#include <algorithm>
+#include <array>
+#include <iomanip>
+#include <iostream>
+#include <vector>
+
 #include <Cabana_Grid.hpp>
 #include <Kokkos_Core.hpp>
 
@@ -48,54 +54,95 @@ class Layer
         // time stepping
         double& time = inputs.time.time;
         int num_steps = inputs.time.num_steps;
-        double dt = inputs.time.time_step;
-        int output_interval = inputs.time.output.interval;
+        const double nominal_dt = inputs.time.time_step;
+
+        exec_space.fence( "Finch run start" );
+        MPI_Barrier( grid.getComm() );
+        const double run_start = MPI_Wtime();
+        inputs.time_monitor.reset();
 
         // update the temperature field
         for ( int n = 0; n < num_steps; ++n )
         {
-            inputs.time_monitor.update();
+            const double dt =
+                std::min( nominal_dt, inputs.time.end_time - time );
 
             step( exec_space, time, dt, grid, beam, fd );
 
             // Update time monitoring
-            if ( ( n + 1 ) % inputs.time.monitor.interval == 0 )
+            if ( inputs.time.monitor.isDue( n + 1, num_steps ) )
             {
-                inputs.time_monitor.write( n );
+                exec_space.fence( "Finch progress monitor" );
+                inputs.time_monitor.write( n + 1 );
             }
 
             // Write the current temperature field
-            if ( ( n + 1 ) % output_interval == 0 )
+            if ( inputs.time.output.isDue( n + 1, num_steps ) )
             {
-                grid.output( n, n * dt );
+                Kokkos::Profiling::ScopedRegion output_region(
+                    "Finch::field_output" );
+                exec_space.fence( "Finch field output" );
+                grid.output( n + 1, time );
             }
+        }
+
+        exec_space.fence( "Finch run complete" );
+        MPI_Barrier( grid.getComm() );
+        const double local_elapsed = MPI_Wtime() - run_start;
+        double min_elapsed = 0.0;
+        double max_elapsed = 0.0;
+        double sum_elapsed = 0.0;
+        MPI_Reduce( &local_elapsed, &min_elapsed, 1, MPI_DOUBLE, MPI_MIN, 0,
+                    grid.getComm() );
+        MPI_Reduce( &local_elapsed, &max_elapsed, 1, MPI_DOUBLE, MPI_MAX, 0,
+                    grid.getComm() );
+        MPI_Reduce( &local_elapsed, &sum_elapsed, 1, MPI_DOUBLE, MPI_SUM, 0,
+                    grid.getComm() );
+
+        unsigned long long local_nodes = grid.getIndexSpace().size();
+        unsigned long long global_nodes = 0;
+        MPI_Reduce( &local_nodes, &global_nodes, 1, MPI_UNSIGNED_LONG_LONG,
+                    MPI_SUM, 0, grid.getComm() );
+        if ( grid.comm_rank == 0 )
+        {
+            const double throughput =
+                max_elapsed > 0.0 ? static_cast<double>( global_nodes ) *
+                                        num_steps / max_elapsed
+                                  : 0.0;
+            std::cout << "Performance summary: " << num_steps << " steps, "
+                      << std::fixed << std::setprecision( 6 ) << max_elapsed
+                      << " s wall time (rank min/avg/max " << min_elapsed << "/"
+                      << sum_elapsed / grid.comm_size << "/" << max_elapsed
+                      << "), " << std::scientific << throughput
+                      << " node updates/s" << std::endl;
         }
     }
 
     // Run a single timestep
     template <typename ExecutionSpace, typename SolverType>
     void step( ExecutionSpace exec_space, double& time, const double dt,
-               Grid<MemorySpace> grid, MovingBeam& beam, SolverType& fd )
+               Grid<MemorySpace>& grid, MovingBeam& beam, SolverType& fd )
     {
+        Kokkos::Profiling::ScopedRegion step_region( "Finch::timestep" );
         time += dt;
 
         // update beam position
         beam.move( time );
         double beam_power = beam.power();
-        double beam_pos[3];
-        for ( std::size_t d = 0; d < 3; ++d )
-            beam_pos[d] = beam.position( d );
+        const auto& beam_pos = beam.position();
+
+        // Ping-pong invariant: T0 is the completed previous field and T is
+        // the output buffer for this step. T0 is not reused until sampling is
+        // complete.
+        grid.swapTemperatureFields();
 
         // Get temperature views;
         auto T = grid.getTemperature();
         auto T0 = grid.getPreviousTemperature();
 
-        // store previous value for explicit update
-        Kokkos::deep_copy( T0, T );
-
         // Solve finite difference
         auto owned_space = grid.getIndexSpace();
-        fd.solve( exec_space, owned_space, T, T0, beam_power, beam_pos );
+        fd.solve( exec_space, owned_space, T, T0, dt, beam_power, beam_pos );
 
         // update boundaries
         grid.updateBoundaries();
@@ -103,7 +150,7 @@ class Layer
         // communicate halos
         grid.gather();
 
-        solidification_data_.update( grid, time );
+        solidification_data_.update( grid, time, dt );
     }
 
     auto getSolidificationData() { return solidification_data_.get(); }

@@ -14,20 +14,22 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 
 #include "Finch_MovingBeam.hpp"
 
 namespace Finch
 {
 
-MovingBeam::MovingBeam( const std::string scan_path_file )
+MovingBeam::MovingBeam( const std::string& scan_path_file, MPI_Comm comm )
     : path( 1, Segment() )
     , index_( 0 )
+    , position_( { 0.0, 0.0, 0.0 } )
     , power_( 0.0 )
     , endTime_( 0.0 )
+    , current_time_( 0.0 )
+    , comm_( comm )
 {
-    position_.resize( 3, 0.0 );
-
     // read the scan path file
     pFile_ = scan_path_file;
     readPath();
@@ -45,13 +47,46 @@ MovingBeam::MovingBeam( const std::string scan_path_file )
 
 void MovingBeam::readPath()
 {
-    std::ifstream is( pFile_ );
+    std::string contents;
+    std::string error;
+    int rank = 0;
+    if ( comm_ != MPI_COMM_NULL )
+        MPI_Comm_rank( comm_, &rank );
 
-    if ( !is.good() )
+    if ( rank == 0 )
     {
-        std::string error = "Cannot find file " + pFile_;
-        throw std::runtime_error( error );
+        std::ifstream input( pFile_ );
+        if ( !input )
+            error = "Cannot open scan-path file " + pFile_;
+        else
+        {
+            std::ostringstream buffer;
+            buffer << input.rdbuf();
+            contents = buffer.str();
+        }
     }
+
+    if ( comm_ != MPI_COMM_NULL )
+    {
+        int error_size = static_cast<int>( error.size() );
+        MPI_Bcast( &error_size, 1, MPI_INT, 0, comm_ );
+        if ( error_size > 0 )
+        {
+            error.resize( error_size );
+            MPI_Bcast( error.data(), error_size, MPI_CHAR, 0, comm_ );
+            throw std::runtime_error( error );
+        }
+
+        int contents_size = static_cast<int>( contents.size() );
+        MPI_Bcast( &contents_size, 1, MPI_INT, 0, comm_ );
+        contents.resize( contents_size );
+        if ( contents_size > 0 )
+            MPI_Bcast( contents.data(), contents_size, MPI_CHAR, 0, comm_ );
+    }
+    else if ( !error.empty() )
+        throw std::runtime_error( error );
+
+    std::istringstream is( contents );
 
     std::string line;
 
@@ -68,6 +103,12 @@ void MovingBeam::readPath()
         path.push_back( Segment( line ) );
     }
 
+    if ( path.size() == 1 )
+        throw std::runtime_error( "Scan-path file contains no path rows" );
+    if ( path[1].mode() != 1 )
+        throw std::runtime_error(
+            "The first scan-path row must define a point source" );
+
     for ( std::size_t i = 1; i < path.size(); i++ )
     {
         if ( path[i].mode() == 1 )
@@ -76,8 +117,8 @@ void MovingBeam::readPath()
         }
         else
         {
-            std::vector<double> p0 = path[i - 1].position();
-            std::vector<double> p1 = path[i].position();
+            const auto& p0 = path[i - 1].position();
+            const auto& p1 = path[i].position();
 
             double d_ = sqrt( ( p0[0] - p1[0] ) * ( p0[0] - p1[0] ) +
                               ( p0[1] - p1[1] ) * ( p0[1] - p1[1] ) +
@@ -90,6 +131,7 @@ void MovingBeam::readPath()
 
 void MovingBeam::move( const double time )
 {
+    current_time_ = time;
     // turn off the laser power and stop position update at the end of the path
     if ( ( time - endTime_ ) > eps )
     {
@@ -109,24 +151,20 @@ void MovingBeam::move( const double time )
     }
     else
     {
-        std::vector<double> displacement( 3, 0 );
-
         double dt = path[i].time() - path[i - 1].time();
 
         if ( dt > 0 )
         {
-            std::vector<double> dx( 3, 0 );
-            dx[0] = path[i].position()[0] - path[i - 1].position()[0];
-            dx[1] = path[i].position()[1] - path[i - 1].position()[1];
-            dx[2] = path[i].position()[2] - path[i - 1].position()[2];
-            displacement[0] = dx[0] * ( time - path[i - 1].time() ) / dt;
-            displacement[1] = dx[1] * ( time - path[i - 1].time() ) / dt;
-            displacement[2] = dx[2] * ( time - path[i - 1].time() ) / dt;
+            for ( int d = 0; d < 3; ++d )
+            {
+                const double dx =
+                    path[i].position()[d] - path[i - 1].position()[d];
+                position_[d] = path[i - 1].position()[d] +
+                               dx * ( time - path[i - 1].time() ) / dt;
+            }
         }
-
-        position_[0] = path[i - 1].position()[0] + displacement[0];
-        position_[1] = path[i - 1].position()[1] + displacement[1];
-        position_[2] = path[i - 1].position()[2] + displacement[2];
+        else
+            position_ = path[i].position();
     }
 
     // update the beam power
@@ -168,7 +206,9 @@ int MovingBeam::findIndex( const double time )
         }
     }
 
-    return std::min( std::max( i, 0 ), n );
+    return std::min( std::max( i, 1 ), n );
 }
+
+bool MovingBeam::activePath() const { return current_time_ <= endTime_ + eps; }
 
 } // namespace Finch

@@ -9,8 +9,8 @@
  * SPDX-License-Identifier: BSD-3-Clause                                    *
  ****************************************************************************/
 
-#ifndef Config_H
-#define Config_H
+#ifndef FINCH_CORE_CONFIG_HPP
+#define FINCH_CORE_CONFIG_HPP
 
 #define Finch_VERSION_STRING "@PROJECT_VERSION@"
 

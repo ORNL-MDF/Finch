@@ -15,9 +15,9 @@ All inputs are passed to Finch in a JSON format.
   - units: `s`
 - `Co`:	Courant number
   - units: unitless
-- `total_output_steps`: Frequency to output simulation data (across the full grid)
+- `total_output_steps`: Desired number of evenly distributed field outputs (zero disables field output)
   - units: unitless
-- `total_monitor_steps`: Frequency to output timing information
+- `total_monitor_steps`: Desired number of evenly distributed timing reports (zero disables progress reports)
   - units: unitless
 
 ## Spatial parameters (`space`)
@@ -30,16 +30,16 @@ All inputs are passed to Finch in a JSON format.
   - units: `m`
 - `global_high_corner`: Top corner of the physical domain
   - units: `m`
-- `ranks_per_dim`: MPI ranks per dimension (replaced if incompatible with resource set)
+- `ranks_per_dim`: MPI ranks per dimension (replaced by a geometry-aware decomposition if incompatible with the communicator size)
   - units: unitless
-  - optional (defaults to MPI-determined cartesian domain decomposition)
+  - optional (defaults to a geometry-aware Cartesian decomposition)
 
 ## Material properties (`properties`)
 
 - `density`: Material density
   - units: `kg/m^3`
 - `specific_heat`: Specific heat capacity
-  - units: `J/g/K`
+  - units: `J/kg/K`
 - `thermal_conductivity`: Thermal conductivity
   - units: `W/m/K`
 - `latent_heat`: Latent heat of fusion
@@ -52,9 +52,13 @@ All inputs are passed to Finch in a JSON format.
 ## Laser source parameters (`source`)
 - `absorption`: Laser absorption
   - units: unitless
+  - must be between 0 and 1
 - `two_sigma`: Laser beam radius (half D4_sigma beam diameter)
   - units: `m`
 - `scan_path_file`: File containing laser path information
+
+The explicit three-dimensional diffusion stencil requires `0 < Co <= 1/6`.
+All domain extents must be positive and evenly divisible by `cell_size`.
 
 
 
@@ -62,7 +66,7 @@ All inputs are passed to Finch in a JSON format.
 This entire section is optional.
 
 - `type`: Type of sampling
-  - options: `solidification_data` (outputs sampled solidification data with spatial position x, y, z; melting time tm; solidification start time (time at which the location goes below the liquidus temperature) ts; solidification rate R; and (optionally) temperature gradients Gx, Gy, Gz)
+  - options: `solidification_data` (outputs sampled solidification data with spatial position x, y, z; melting time tm; solidification time ts; cooling rate R in K/s; and, optionally, temperature gradients Gx, Gy, Gz in K/m)
 - `format`: Output format
   - options: `default` (output sampled solidification data) and `exaca` (output only sampled solidification data relevant to ExaCA microstructure prediction: does not output Gx, Gy, Gz)
 - `directory_name`: Path to save output
@@ -84,7 +88,7 @@ This entire section is optional.
 - `speed`: Laser scan speed
   - units: `m/s`
 - `dwell_time`: Dwell time
-  - units: `degrees`
+  - units: `s`
 - `bi_direction`: If true, reverse the scan direction for every line
   - boolean
   - optional (defaults to true)

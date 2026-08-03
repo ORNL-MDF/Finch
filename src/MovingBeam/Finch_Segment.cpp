@@ -9,9 +9,11 @@
  * SPDX-License-Identifier: BSD-3-Clause                                    *
  ****************************************************************************/
 
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 
 #include "Finch_Segment.hpp"
 
@@ -20,7 +22,7 @@ namespace Finch
 
 void Segment::setTime( double time ) { time_ = time; }
 
-void Segment::setPosition( std::vector<double> position )
+void Segment::setPosition( const std::array<double, 3>& position )
 {
     position_ = position;
 }
@@ -31,16 +33,31 @@ Segment::Segment()
     , parameter_( 0.0 )
     , time_( 0.0 )
 {
-    position_.resize( 3, 0.0 );
+    position_.fill( 0.0 );
 }
 
-Segment::Segment( std::string line )
+Segment::Segment( const std::string& line )
 {
-    position_.resize( 3, 0.0 );
+    position_.fill( 0.0 );
     std::stringstream lineStream( line );
 
-    lineStream >> mode_ >> position_[0] >> position_[1] >> position_[2] >>
-        power_ >> parameter_;
+    if ( !( lineStream >> mode_ >> position_[0] >> position_[1] >>
+            position_[2] >> power_ >> parameter_ ) )
+        throw std::runtime_error( "Invalid scan-path row: " + line );
+
+    std::string trailing;
+    if ( lineStream >> trailing )
+        throw std::runtime_error( "Unexpected scan-path data: " + line );
+    if ( mode_ != 0 && mode_ != 1 )
+        throw std::runtime_error( "Scan-path mode must be 0 or 1" );
+    if ( !std::isfinite( position_[0] ) || !std::isfinite( position_[1] ) ||
+         !std::isfinite( position_[2] ) || !std::isfinite( power_ ) ||
+         !std::isfinite( parameter_ ) || power_ < 0.0 || parameter_ < 0.0 ||
+         ( mode_ == 0 && parameter_ <= 0.0 ) )
+        throw std::runtime_error(
+            "Scan-path coordinates, power, and parameter must be finite; "
+            "power and dwell time must be nonnegative and line speed must be "
+            "positive" );
 }
 
 } // namespace Finch

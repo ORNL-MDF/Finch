@@ -17,15 +17,21 @@
 #ifndef Inputs_H
 #define Inputs_H
 
+#include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
+#include <sstream>
+#include <stdexcept>
 #include <string>
 #include <unistd.h>
 #include <vector>
 
+#include <mpi.h>
 #include <nlohmann/json.hpp>
 
 #include <Finch_Version.hpp>
@@ -40,8 +46,8 @@ namespace Finch
 
 struct Output
 {
-    int total_steps;
-    int interval;
+    int total_steps = 0;
+    int interval = 1;
 
     void setInterval( const int num_steps )
     {
@@ -57,73 +63,86 @@ struct Output
             interval = std::max( std::min( interval, num_steps ), 1 );
         }
     }
+
+    bool isDue( const int completed_steps, const int num_steps ) const
+    {
+        if ( total_steps <= 0 || num_steps <= 0 || completed_steps <= 0 )
+            return false;
+
+        // Integer arithmetic gives evenly distributed output and always
+        // includes the final step without accumulating floating-point error.
+        const long long capped_outputs = std::min( total_steps, num_steps );
+        return ( static_cast<long long>( completed_steps ) * capped_outputs ) /
+                   num_steps >
+               ( static_cast<long long>( completed_steps - 1 ) *
+                 capped_outputs ) /
+                   num_steps;
+    }
 };
 
 struct Time
 {
-    double Co;
-    double start_time;
-    double end_time;
-    double time_step;
-    double time;
-    int num_steps;
+    double Co = 0.0;
+    double start_time = 0.0;
+    double end_time = 0.0;
+    double time_step = 0.0;
+    double time = 0.0;
+    int num_steps = 0;
     Output output;
     Output monitor;
 };
 
 struct Space
 {
-    double initial_temperature;
-    double cell_size;
-    std::array<double, 3> global_low_corner;
-    std::array<double, 3> global_high_corner;
-    std::array<int, 3> ranks_per_dim;
+    double initial_temperature = 0.0;
+    double cell_size = 0.0;
+    std::array<double, 3> global_low_corner = { 0.0, 0.0, 0.0 };
+    std::array<double, 3> global_high_corner = { 0.0, 0.0, 0.0 };
+    std::array<int, 3> ranks_per_dim = { 0, 0, 0 };
 };
 
 struct Source
 {
-    double absorption;
-    std::array<double, 3> two_sigma;
-    std::array<double, 3> r;
+    double absorption = 0.0;
+    std::array<double, 3> two_sigma = { 0.0, 0.0, 0.0 };
     std::string scan_path_file;
 };
 
 struct Properties
 {
-    double density;
-    double specific_heat;
-    double thermal_conductivity;
-    double thermal_diffusivity;
-    double latent_heat;
-    double solidus;
-    double liquidus;
+    double density = 0.0;
+    double specific_heat = 0.0;
+    double thermal_conductivity = 0.0;
+    double thermal_diffusivity = 0.0;
+    double latent_heat = 0.0;
+    double solidus = 0.0;
+    double liquidus = 0.0;
 };
 
 struct Sampling
 {
     std::string type;
-    std::string format;
+    std::string format = "default";
     std::string directory_name = "solidification";
-    bool enabled;
+    bool enabled = false;
 };
 
 struct TimeMonitor
 {
-    std::chrono::high_resolution_clock::time_point start_time;
+    std::chrono::steady_clock::time_point start_time;
     std::chrono::duration<double> elapsed_seconds;
-    double total_elapsed_time;
-    int total_monitor_steps;
-    int num_steps;
-    int comm_rank;
+    double total_elapsed_time = 0.0;
+    int total_monitor_steps = 0;
+    int num_steps = 0;
+    int comm_rank = 0;
 
     // Default constructor
-    TimeMonitor(){};
+    TimeMonitor() = default;
 
     // Constructor with MPI_Comm
     TimeMonitor( MPI_Comm comm, Time& time )
-        : total_elapsed_time( 0.0 )
     {
-        start_time = std::chrono::high_resolution_clock::now();
+        start_time = std::chrono::steady_clock::now();
         MPI_Comm_rank( comm, &comm_rank );
         total_monitor_steps = time.monitor.total_steps;
         num_steps = time.num_steps;
@@ -131,11 +150,17 @@ struct TimeMonitor
 
     void update()
     {
-        auto end_time = std::chrono::high_resolution_clock::now();
+        auto end_time = std::chrono::steady_clock::now();
         elapsed_seconds = end_time - start_time;
         total_elapsed_time += elapsed_seconds.count();
 
-        start_time = std::chrono::high_resolution_clock::now();
+        start_time = std::chrono::steady_clock::now();
+    }
+
+    void reset()
+    {
+        total_elapsed_time = 0.0;
+        start_time = std::chrono::steady_clock::now();
     }
 
     void write( int step )
@@ -169,7 +194,7 @@ class Inputs
         MPI_Comm_rank( comm, &comm_rank );
         MPI_Comm_size( comm, &comm_size );
         std::string filename = getFilename( argc, argv );
-        parseInputFile( filename );
+        parseInputFile( comm, filename );
         calcAuxiliaryProperties( comm );
     }
     // constructor for coupled run of Finch with ExaCA - inputs potentially
@@ -179,7 +204,7 @@ class Inputs
     {
         MPI_Comm_rank( comm, &comm_rank );
         MPI_Comm_size( comm, &comm_size );
-        parseInputFile( filename, input_file_number );
+        parseInputFile( comm, filename, input_file_number );
         calcAuxiliaryProperties( comm );
     }
 
@@ -265,25 +290,77 @@ class Inputs
                 throw std::runtime_error( error_message );
             }
         }
-        std::string filename_s( filename );
-        return filename_s;
+        if ( filename == nullptr )
+            throw std::runtime_error(
+                "Error: the input file must be specified using -i "
+                "<input_json_file>" );
+
+        return std::string( filename );
     }
 
-    void parseInputFile( const std::string filename,
+    nlohmann::json readInputDocument( MPI_Comm comm,
+                                      const std::string& filename )
+    {
+        std::string contents;
+        std::string error;
+        if ( comm_rank == 0 )
+        {
+            std::ifstream input_data_stream( filename );
+            if ( !input_data_stream )
+                error = "Error: cannot open Finch input file " + filename;
+            else
+            {
+                std::ostringstream buffer;
+                buffer << input_data_stream.rdbuf();
+                contents = buffer.str();
+            }
+        }
+
+        int error_size = static_cast<int>( error.size() );
+        MPI_Bcast( &error_size, 1, MPI_INT, 0, comm );
+        if ( error_size > 0 )
+        {
+            error.resize( error_size );
+            MPI_Bcast( error.data(), error_size, MPI_CHAR, 0, comm );
+            throw std::runtime_error( error );
+        }
+
+        int contents_size = static_cast<int>( contents.size() );
+        MPI_Bcast( &contents_size, 1, MPI_INT, 0, comm );
+        contents.resize( contents_size );
+        if ( contents_size > 0 )
+            MPI_Bcast( contents.data(), contents_size, MPI_CHAR, 0, comm );
+
+        try
+        {
+            return nlohmann::json::parse( contents );
+        }
+        catch ( const nlohmann::json::exception& e )
+        {
+            throw std::runtime_error( "Error parsing " + filename + ": " +
+                                      e.what() );
+        }
+    }
+
+    bool requiredSectionsFound( const std::vector<bool>& found ) const
+    {
+        // Sampling is optional; the other four sections are required.
+        return std::all_of( found.begin(), found.begin() + 4,
+                            []( const bool value ) { return value; } );
+    }
+
+    void parseInputFile( MPI_Comm comm, const std::string& filename,
                          const int input_file_number = 0 )
     {
         // Input file is either a Finch input file or an ExaCA input file with a
         // Finch object
         Info << "Parsing input file " << input_file_number << std::endl;
-        std::ifstream input_data_stream( filename );
-        nlohmann::json input_data_raw =
-            nlohmann::json::parse( input_data_stream );
+        nlohmann::json input_data_raw = readInputDocument( comm, filename );
         if ( !input_data_raw.contains( "Finch" ) )
         {
             // This is a Finch input file and should have all 5 sections
             std::vector<bool> found_sections = readSections( input_data_raw );
-            if ( std::find( found_sections.begin(), found_sections.end(),
-                            false ) != found_sections.end() )
+            if ( !requiredSectionsFound( found_sections ) )
                 throw std::runtime_error(
                     "Error: Missing top-level sections of Finch input file, "
                     "see README for proper input file format" );
@@ -301,8 +378,7 @@ class Inputs
                 // All inputs should be present at the top level of the file
                 std::vector<bool> found_sections =
                     readSections( top_level_input_data );
-                if ( std::find( found_sections.begin(), found_sections.end(),
-                                false ) != found_sections.end() )
+                if ( !requiredSectionsFound( found_sections ) )
                     throw std::runtime_error(
                         "Error: Missing top-level sections of Finch input "
                         "file, see README for proper input file format" );
@@ -328,7 +404,7 @@ class Inputs
                                 "`layers` object will be used"
                              << std::endl;
                     }
-                    else if ( ( !found_sections_top_level[n] ) &&
+                    else if ( n < 4 && ( !found_sections_top_level[n] ) &&
                               ( !found_sections_layer_level[n] ) )
                     {
                         std::string err_message = "Error: Finch input object " +
@@ -339,7 +415,143 @@ class Inputs
                 }
             }
         }
+        validateInputs();
+        selectRankDecomposition();
         write();
+    }
+
+    void validateInputs() const
+    {
+        const auto finite = []( const double value )
+        { return std::isfinite( value ); };
+
+        if ( !finite( time.Co ) || time.Co <= 0.0 || time.Co > 1.0 / 6.0 )
+            throw std::runtime_error(
+                "Error: time.Co must be in (0, 1/6] for the 3D explicit "
+                "diffusion stencil" );
+        if ( !finite( time.start_time ) || !finite( time.end_time ) ||
+             time.end_time <= time.start_time )
+            throw std::runtime_error(
+                "Error: end_time must be finite and greater than start_time" );
+        if ( time.output.total_steps < 0 || time.monitor.total_steps < 0 )
+            throw std::runtime_error(
+                "Error: output and monitor step counts cannot be negative" );
+
+        if ( !finite( space.initial_temperature ) ||
+             !finite( space.cell_size ) || space.cell_size <= 0.0 )
+            throw std::runtime_error(
+                "Error: initial_temperature must be finite and cell_size "
+                "must be positive" );
+        for ( int d = 0; d < 3; ++d )
+        {
+            const double extent =
+                space.global_high_corner[d] - space.global_low_corner[d];
+            if ( !finite( space.global_low_corner[d] ) ||
+                 !finite( space.global_high_corner[d] ) || extent <= 0.0 )
+                throw std::runtime_error(
+                    "Error: every global domain extent must be positive" );
+
+            const double cells = extent / space.cell_size;
+            if ( std::abs( cells - std::round( cells ) ) >
+                 100.0 * std::numeric_limits<double>::epsilon() *
+                     std::max( 1.0, std::abs( cells ) ) )
+                throw std::runtime_error(
+                    "Error: every global domain extent must be evenly "
+                    "divisible by cell_size" );
+            if ( space.ranks_per_dim[d] < 0 )
+                throw std::runtime_error(
+                    "Error: ranks_per_dim values cannot be negative" );
+        }
+
+        if ( !finite( properties.density ) || properties.density <= 0.0 ||
+             !finite( properties.specific_heat ) ||
+             properties.specific_heat <= 0.0 ||
+             !finite( properties.thermal_conductivity ) ||
+             properties.thermal_conductivity <= 0.0 ||
+             !finite( properties.latent_heat ) ||
+             properties.latent_heat < 0.0 || !finite( properties.solidus ) ||
+             !finite( properties.liquidus ) ||
+             properties.liquidus <= properties.solidus )
+            throw std::runtime_error(
+                "Error: material properties must be finite, density, heat "
+                "capacity, and conductivity must be positive, latent heat "
+                "must be nonnegative, and liquidus must exceed solidus" );
+
+        if ( !finite( source.absorption ) || source.absorption < 0.0 ||
+             source.absorption > 1.0 || source.scan_path_file.empty() )
+            throw std::runtime_error(
+                "Error: source absorption must be in [0,1] and "
+                "scan_path_file cannot be empty" );
+        for ( const double sigma : source.two_sigma )
+            if ( !finite( sigma ) || sigma <= 0.0 )
+                throw std::runtime_error(
+                    "Error: every source two_sigma value must be positive" );
+
+        if ( sampling.enabled && sampling.directory_name.empty() )
+            throw std::runtime_error(
+                "Error: sampling directory_name cannot be empty" );
+    }
+
+    void selectRankDecomposition()
+    {
+        const int requested_product = space.ranks_per_dim[0] *
+                                      space.ranks_per_dim[1] *
+                                      space.ranks_per_dim[2];
+        std::array<int, 3> cells;
+        for ( int d = 0; d < 3; ++d )
+            cells[d] = static_cast<int>( std::llround(
+                ( space.global_high_corner[d] - space.global_low_corner[d] ) /
+                space.cell_size ) );
+
+        if ( requested_product == comm_size )
+        {
+            for ( int d = 0; d < 3; ++d )
+                if ( space.ranks_per_dim[d] <= 0 ||
+                     space.ranks_per_dim[d] > cells[d] )
+                    throw std::runtime_error(
+                        "Error: ranks_per_dim would create an empty local "
+                        "domain" );
+            return;
+        }
+
+        if ( requested_product != 0 )
+            Info << "Ignoring ranks_per_dim because its product does not "
+                    "match the MPI communicator size; selecting a "
+                    "geometry-aware decomposition."
+                 << std::endl;
+
+        double best_cost = std::numeric_limits<double>::max();
+        std::array<int, 3> best = { 0, 0, 0 };
+        for ( int px = 1; px <= comm_size; ++px )
+        {
+            if ( comm_size % px != 0 || px > cells[0] )
+                continue;
+            const int remainder = comm_size / px;
+            for ( int py = 1; py <= remainder; ++py )
+            {
+                if ( remainder % py != 0 || py > cells[1] )
+                    continue;
+                const int pz = remainder / py;
+                if ( pz > cells[2] )
+                    continue;
+
+                // Approximate the total internal face area communicated by a
+                // Cartesian decomposition. Constant factors are omitted.
+                const double cost = ( px - 1.0 ) * cells[1] * cells[2] +
+                                    ( py - 1.0 ) * cells[0] * cells[2] +
+                                    ( pz - 1.0 ) * cells[0] * cells[1];
+                if ( cost < best_cost )
+                {
+                    best_cost = cost;
+                    best = { px, py, pz };
+                }
+            }
+        }
+
+        if ( best[0] == 0 )
+            throw std::runtime_error(
+                "Error: MPI communicator is too large for the global grid" );
+        space.ranks_per_dim = best;
     }
 
     void calcAuxiliaryProperties( MPI_Comm comm )
@@ -356,8 +568,16 @@ class Inputs
 
         time.time = time.start_time;
 
-        time.num_steps = static_cast<int>( ( time.end_time - time.start_time ) /
-                                           ( time.time_step ) );
+        const double duration = time.end_time - time.start_time;
+        const double step_count = duration / time.time_step;
+        if ( !std::isfinite( time.time_step ) || time.time_step <= 0.0 ||
+             !std::isfinite( step_count ) ||
+             step_count > std::numeric_limits<int>::max() - 1.0 )
+            throw std::runtime_error( "Error: calculated timestep or step "
+                                      "count is not representable" );
+        time.num_steps = static_cast<int>(
+            std::ceil( duration / time.time_step -
+                       16.0 * std::numeric_limits<double>::epsilon() ) );
 
         time.output.setInterval( time.num_steps );
         time.monitor.setInterval( time.num_steps );
@@ -428,14 +648,6 @@ class Inputs
         if ( db["space"].contains( "ranks_per_dim" ) )
             ranks_per_dim = db["space"]["ranks_per_dim"];
 
-        // Invalid partition strategy selected. Use Default block partioner.
-        int product = ranks_per_dim[0] * ranks_per_dim[1] * ranks_per_dim[2];
-
-        if ( product != comm_size )
-        {
-            ranks_per_dim = default_ranks_per_dim;
-        }
-
         space.ranks_per_dim = ranks_per_dim;
     }
 
@@ -457,17 +669,13 @@ class Inputs
         source.absorption = db["source"]["absorption"];
         source.two_sigma = db["source"]["two_sigma"];
 
-        source.two_sigma[0] = fabs( source.two_sigma[0] );
-        source.two_sigma[1] = fabs( source.two_sigma[1] );
-        source.two_sigma[2] = fabs( source.two_sigma[2] );
-
         source.scan_path_file = db["source"]["scan_path_file"];
     }
 
     void readInputSampling( nlohmann::json db )
     {
         // Read sampling components
-        sampling.enabled = false;
+        sampling = Sampling{};
         if ( db.contains( "sampling" ) )
         {
             const std::string sampling_type = db["sampling"]["type"];
@@ -477,17 +685,24 @@ class Inputs
                 sampling.type = sampling_type;
                 sampling.enabled = true;
             }
+            else
+                throw std::runtime_error( "Error: unsupported sampling type " +
+                                          sampling_type );
 
-            const std::string sampling_format = db["sampling"]["format"];
+            const std::string sampling_format =
+                db["sampling"].value( "format", "default" );
 
             if ( sampling_format == "exaca" )
             {
                 sampling.format = sampling_format;
             }
-            else
+            else if ( sampling_format == "default" )
             {
                 sampling.format = "default";
             }
+            else
+                throw std::runtime_error(
+                    "Error: sampling format must be default or exaca" );
 
             if ( db["sampling"].contains( "directory_name" ) )
             {

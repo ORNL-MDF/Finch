@@ -1,0 +1,263 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+finch_source=${FINCH_SOURCE:-${script_dir}}
+deps_root=${FINCH_DEPS_ROOT:-${finch_source}/build/dependencies}
+finch_build_dir=${FINCH_BUILD_DIR:-${finch_source}/build/cpu}
+finch_install=${FINCH_INSTALL_PREFIX:-${finch_source}/build/install}
+build_type=${FINCH_BUILD_TYPE:-Release}
+backend=${FINCH_BACKEND:-OPENMP}
+backend=${backend^^}
+cc=${FINCH_CC:-mpicc}
+cxx=${FINCH_CXX:-mpicxx}
+enable_adios2=${FINCH_ENABLE_ADIOS2:-ON}
+jobs=${FINCH_JOBS:-${WM_NCOMPPROCS:-}}
+
+kokkos_source=${deps_root}/src/kokkos
+cabana_source=${deps_root}/src/cabana
+adios2_source=${deps_root}/src/adios2
+json_source=${deps_root}/src/json
+
+kokkos_install=${deps_root}/install/kokkos
+cabana_install=${deps_root}/install/cabana
+adios2_install=${deps_root}/install/adios2
+json_install=${deps_root}/install/json
+
+parallel_args=( --parallel )
+if [[ -n "${jobs}" ]]; then
+    parallel_args+=( "${jobs}" )
+fi
+
+read -r -a kokkos_extra <<< "${FINCH_KOKKOS_CMAKE_ARGS:-}"
+read -r -a cabana_extra <<< "${FINCH_CABANA_CMAKE_ARGS:-}"
+read -r -a adios2_extra <<< "${FINCH_ADIOS2_CMAKE_ARGS:-}"
+read -r -a json_extra <<< "${FINCH_JSON_CMAKE_ARGS:-}"
+
+prepare_source()
+{
+    local name=$1
+    local url=$2
+    local version=$3
+    local directory=$4
+
+    if [[ -f "${directory}/CMakeLists.txt" ]]; then
+        echo "Using existing ${name} source: ${directory}"
+        return
+    fi
+    if [[ -e "${directory}" ]]; then
+        echo "Cannot use incomplete ${name} source directory: ${directory}" >&2
+        echo "Move it aside or remove that dependency directory, then rerun Allwmake." >&2
+        return 1
+    fi
+    git clone --depth 1 --branch "${version}" "${url}" "${directory}"
+}
+
+build_and_install()
+{
+    local build_directory=$1
+    cmake --build "${build_directory}" "${parallel_args[@]}"
+    cmake --install "${build_directory}"
+}
+
+cache_value()
+{
+    local cache=$1
+    local key=$2
+    sed -n "s/^${key}:[^=]*=//p" "${cache}"
+}
+
+compiler_command()
+{
+    local compiler=$1
+    local resolved
+
+    if resolved=$(command -v "${compiler}" 2>/dev/null); then
+        printf '%s\n' "${resolved}"
+    else
+        printf '%s\n' "${compiler}"
+    fi
+}
+
+reset_cache_for_toolchain_change()
+{
+    local build_directory=$1
+    local expected_c=$2
+    local expected_cxx=$3
+    local cache=${build_directory}/CMakeCache.txt
+    local cached_compiler
+    local expected_compiler
+
+    [[ -f "${cache}" ]] || return
+
+    if [[ -n "${expected_c}" ]]; then
+        cached_compiler=$(cache_value "${cache}" CMAKE_C_COMPILER)
+        expected_compiler=$(compiler_command "${expected_c}")
+        if [[ -n "${cached_compiler}" ]] &&
+            [[ $(compiler_command "${cached_compiler}") != "${expected_compiler}" ]]; then
+            echo "Resetting ${build_directory}: the C compiler changed from ${cached_compiler} to ${expected_c}."
+            cmake -E remove_directory "${build_directory}/CMakeFiles"
+            rm -f -- "${cache}"
+            return
+        fi
+    fi
+
+    if [[ -n "${expected_cxx}" ]]; then
+        cached_compiler=$(cache_value "${cache}" CMAKE_CXX_COMPILER)
+        expected_compiler=$(compiler_command "${expected_cxx}")
+        if [[ -n "${cached_compiler}" ]] &&
+            [[ $(compiler_command "${cached_compiler}") != "${expected_compiler}" ]]; then
+            echo "Resetting ${build_directory}: the C++ compiler changed from ${cached_compiler} to ${expected_cxx}."
+            cmake -E remove_directory "${build_directory}/CMakeFiles"
+            rm -f -- "${cache}"
+        fi
+    fi
+}
+
+mkdir -p "${deps_root}/src" "${deps_root}/build" \
+    "${deps_root}/install"
+
+prepare_source Kokkos https://github.com/kokkos/kokkos.git 4.6.02 \
+    "${kokkos_source}"
+prepare_source Cabana https://github.com/ECP-copa/Cabana.git 0.8.0 \
+    "${cabana_source}"
+prepare_source nlohmann-json https://github.com/nlohmann/json.git v3.11.3 \
+    "${json_source}"
+if [[ "${enable_adios2}" == "ON" ]]; then
+    prepare_source ADIOS2 https://github.com/ornladios/ADIOS2.git v2.11.0 \
+        "${adios2_source}"
+fi
+
+kokkos_backend_args=()
+case "${backend}" in
+    OPENMP)
+        kokkos_backend_args+=(
+            -DKokkos_ENABLE_OPENMP=ON
+            -DKokkos_ENABLE_SERIAL=ON
+        )
+        ;;
+    SERIAL)
+        kokkos_backend_args+=( -DKokkos_ENABLE_SERIAL=ON )
+        ;;
+    CUDA)
+        kokkos_backend_args+=(
+            -DKokkos_ENABLE_CUDA=ON
+            -DKokkos_ENABLE_CUDA_LAMBDA=ON
+            -DKokkos_ENABLE_SERIAL=ON
+        )
+        ;;
+    HIP)
+        kokkos_backend_args+=(
+            -DKokkos_ENABLE_HIP=ON
+            -DKokkos_ENABLE_SERIAL=ON
+        )
+        ;;
+    SYCL)
+        kokkos_backend_args+=(
+            -DKokkos_ENABLE_SYCL=ON
+            -DKokkos_ENABLE_SERIAL=ON
+        )
+        ;;
+    *)
+        echo "Unsupported FINCH_BACKEND=${backend}; use OPENMP, SERIAL, CUDA, HIP, or SYCL." >&2
+        exit 1
+        ;;
+esac
+
+if [[ -v FINCH_KOKKOS_ARCH ]]; then
+    kokkos_arch=${FINCH_KOKKOS_ARCH}
+else
+    kokkos_arch=
+    if [[ "${backend}" == "OPENMP" || "${backend}" == "SERIAL" ]]; then
+        kokkos_arch=NATIVE
+    fi
+fi
+if [[ "${kokkos_arch}" == "NONE" || "${kokkos_arch}" == "OFF" ]]; then
+    kokkos_arch=
+fi
+if [[ -n "${kokkos_arch}" ]]; then
+    kokkos_backend_args+=( "-DKokkos_ARCH_${kokkos_arch}=ON" )
+elif [[ "${backend}" != "OPENMP" && "${backend}" != "SERIAL" ]]; then
+    echo "Warning: FINCH_KOKKOS_ARCH is unset; specify the target GPU architecture for production performance." >&2
+fi
+
+echo "Configuring Kokkos 4.6.02 (${backend})"
+reset_cache_for_toolchain_change "${deps_root}/build/kokkos" "" "${cxx}"
+cmake -S "${kokkos_source}" -B "${deps_root}/build/kokkos" \
+    -DCMAKE_BUILD_TYPE="${build_type}" \
+    -DCMAKE_CXX_COMPILER="${cxx}" \
+    -DCMAKE_INSTALL_MESSAGE=LAZY \
+    -DCMAKE_INSTALL_PREFIX="${kokkos_install}" \
+    -DKokkos_ENABLE_HWLOC=ON \
+    "${kokkos_backend_args[@]}" "${kokkos_extra[@]}"
+build_and_install "${deps_root}/build/kokkos"
+
+echo "Configuring Cabana 0.8.0"
+reset_cache_for_toolchain_change "${deps_root}/build/cabana" "" "${cxx}"
+cmake -S "${cabana_source}" -B "${deps_root}/build/cabana" \
+    -DCMAKE_BUILD_TYPE="${build_type}" \
+    -DCMAKE_CXX_COMPILER="${cxx}" \
+    -DCMAKE_INSTALL_MESSAGE=LAZY \
+    -DCMAKE_INSTALL_PREFIX="${cabana_install}" \
+    -DCMAKE_PREFIX_PATH="${kokkos_install}" \
+    -DCabana_ENABLE_MPI=ON \
+    -DCabana_ENABLE_GRID=ON \
+    "${cabana_extra[@]}"
+build_and_install "${deps_root}/build/cabana"
+
+echo "Configuring nlohmann/json 3.11.3"
+reset_cache_for_toolchain_change "${deps_root}/build/json" "" "${cxx}"
+cmake -S "${json_source}" -B "${deps_root}/build/json" \
+    -DCMAKE_BUILD_TYPE="${build_type}" \
+    -DCMAKE_CXX_COMPILER="${cxx}" \
+    -DCMAKE_INSTALL_MESSAGE=LAZY \
+    -DCMAKE_INSTALL_PREFIX="${json_install}" \
+    -DJSON_BuildTests=OFF \
+    "${json_extra[@]}"
+build_and_install "${deps_root}/build/json"
+
+prefix_path="${kokkos_install};${cabana_install}"
+if [[ "${enable_adios2}" == "ON" ]]; then
+    echo "Configuring ADIOS2 2.11.0"
+    reset_cache_for_toolchain_change "${deps_root}/build/adios2" "${cc}" "${cxx}"
+    cmake -S "${adios2_source}" -B "${deps_root}/build/adios2" \
+        -DCMAKE_BUILD_TYPE="${build_type}" \
+        -DCMAKE_C_COMPILER="${cc}" \
+        -DCMAKE_CXX_COMPILER="${cxx}" \
+        -DCMAKE_INSTALL_MESSAGE=LAZY \
+        -DCMAKE_INSTALL_PREFIX="${adios2_install}" \
+        -DCMAKE_PREFIX_PATH="${kokkos_install}" \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DBUILD_TESTING=OFF \
+        -DADIOS2_BUILD_EXAMPLES=OFF \
+        -DADIOS2_INSTALL_GENERATE_CONFIG=OFF \
+        -DADIOS2_USE_MPI=ON \
+        -DADIOS2_USE_Kokkos=ON \
+        -DADIOS2_USE_Fortran=OFF \
+        -DADIOS2_USE_Python=OFF \
+        -DADIOS2_USE_HDF5=OFF \
+        -DADIOS2_USE_Campaign=OFF \
+        -DADIOS2_USE_MHS=OFF \
+        -DADIOS2_USE_SST=OFF \
+        "${adios2_extra[@]}"
+    build_and_install "${deps_root}/build/adios2"
+    prefix_path+=";${adios2_install}"
+fi
+prefix_path+=";${json_install}"
+
+echo "Configuring Finch"
+reset_cache_for_toolchain_change "${finch_build_dir}" "${cc}" "${cxx}"
+cmake -S "${finch_source}" -B "${finch_build_dir}" \
+    -DCMAKE_BUILD_TYPE="${build_type}" \
+    -DCMAKE_C_COMPILER="${cc}" \
+    -DCMAKE_CXX_COMPILER="${cxx}" \
+    -DCMAKE_INSTALL_MESSAGE=LAZY \
+    -DCMAKE_INSTALL_PREFIX="${finch_install}" \
+    -DCMAKE_PREFIX_PATH="${prefix_path}" \
+    -DFinch_ENABLE_ADIOS2="${enable_adios2}" \
+    "$@"
+build_and_install "${finch_build_dir}"
+
+echo "Finch installed to ${finch_install}"

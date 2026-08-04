@@ -54,15 +54,10 @@ void run( int argc, char* argv[] )
     // initialize a moving beam
     Finch::MovingBeam beam( db.source.scan_path_file, MPI_COMM_WORLD );
 
-    // Define boundary condition details.
-    std::array<std::string, 6> bc_types = { "adiabatic", "adiabatic",
-                                            "adiabatic", "adiabatic",
-                                            "adiabatic", "adiabatic" };
-
     // create the global mesh
     Finch::Grid<memory_space> grid(
         MPI_COMM_WORLD, db.space.cell_size, db.space.global_low_corner,
-        db.space.global_high_corner, db.space.ranks_per_dim, bc_types,
+        db.space.global_high_corner, db.space.ranks_per_dim, db.boundary,
         db.space.initial_temperature, execution_space );
 
     // Create the solver
@@ -71,11 +66,6 @@ void run( int argc, char* argv[] )
     // Run the full single layer problem
     Finch::Layer app( db, grid );
     app.run( execution_space, db, grid, beam, fd );
-
-    // Write the temperature data used by ExaCA/other post-processing
-    app.writeSolidificationData( db.sampling, grid.getComm() );
-    app.getLowerSolidificationDataBounds( grid.getComm() );
-    app.getUpperSolidificationDataBounds( grid.getComm() );
 }
 
 int main( int argc, char* argv[] )

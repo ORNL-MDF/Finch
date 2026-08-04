@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(Finch LANGUAGES CXX C)
-set(PROJECT_VERSION "0.3.0-dev")
+set(PROJECT_VERSION "2.0.0-dev")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -10,6 +10,16 @@ include(GNUInstallDirs)
 
 find_package(Kokkos 4.6.2 EXACT REQUIRED)
 find_package(Cabana 0.8.0 EXACT REQUIRED COMPONENTS Cabana::Grid)
+
+option(Finch_ENABLE_ADIOS2
+  "Enable the persistent ADIOS2 BP5 field-output backend" OFF)
+if(Finch_ENABLE_ADIOS2)
+  find_package(ADIOS2 2.11 CONFIG REQUIRED)
+  if(NOT TARGET adios2::cxx_mpi)
+    message(FATAL_ERROR
+      "Finch ADIOS2 output requires an MPI-enabled ADIOS2 C++ build")
+  endif()
+endif()
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
   cmake_policy(SET CMP0135 NEW)

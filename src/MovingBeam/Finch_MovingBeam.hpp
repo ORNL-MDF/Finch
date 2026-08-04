@@ -42,6 +42,9 @@ class MovingBeam
     //! current position of moving beam
     std::array<double, 3> position_;
 
+    //! current in-plane scan direction (defaults to global x for a dwell)
+    std::array<double, 3> direction_;
+
     //! current power of moving beam
     double power_;
 
@@ -80,8 +83,15 @@ class MovingBeam
     //! Return end time of path
     double endTime() const { return endTime_; }
 
+    //! Append times with a true source position, velocity, or power
+    //! discontinuity. Collinear path subdivisions are omitted.
+    void appendDiscontinuityTimes( std::vector<double>& times ) const;
+
     //! Return current position of the moving beam
     const std::array<double, 3>& position() const { return position_; }
+
+    //! Return the current scan direction.
+    const std::array<double, 3>& direction() const { return direction_; }
 
     //! Return current position component of the moving beam
     double position( const int dir ) const { return position_[dir]; }

@@ -34,61 +34,46 @@
 #include <mpi.h>
 #include <nlohmann/json.hpp>
 
+#include <Finch_BoundaryConditions.hpp>
 #include <Finch_Version.hpp>
 
 namespace Finch
 {
 
-// Info macro for writing on master
-#define Info                                                                   \
+// Rank-zero stream used for input and progress reporting.
+#define FINCH_INFO                                                             \
     if ( comm_rank == 0 )                                                      \
     std::cout
 
 struct Output
 {
     int total_steps = 0;
-    int interval = 1;
-
-    void setInterval( const int num_steps )
-    {
-        // If total_output_steps = 0, set increment to greater than the number
-        // of time steps to avoid printing output, otherwise bound
-        // output_interval to be greater than 1 and no larger than the total
-        // number of time steps
-        if ( total_steps == 0 )
-            interval = num_steps + 1;
-        else
-        {
-            interval = static_cast<int>( ( num_steps / total_steps ) );
-            interval = std::max( std::min( interval, num_steps ), 1 );
-        }
-    }
 
     bool isDue( const int completed_steps, const int num_steps ) const
     {
-        if ( total_steps <= 0 || num_steps <= 0 || completed_steps <= 0 )
+        if ( total_steps == 0 )
             return false;
 
         // Integer arithmetic gives evenly distributed output and always
         // includes the final step without accumulating floating-point error.
-        const long long capped_outputs = std::min( total_steps, num_steps );
-        return ( static_cast<long long>( completed_steps ) * capped_outputs ) /
+        return ( static_cast<long long>( completed_steps ) * total_steps ) /
                    num_steps >
-               ( static_cast<long long>( completed_steps - 1 ) *
-                 capped_outputs ) /
+               ( static_cast<long long>( completed_steps - 1 ) * total_steps ) /
                    num_steps;
     }
 };
 
 struct Time
 {
-    double Co = 0.0;
+    // A three-dimensional forward-Euler diffusion update is stable at or below
+    // 1/6. Keep some margin by default while allowing advanced users to choose
+    // another stable value.
+    double maximum_fourier_number = 0.125;
     double start_time = 0.0;
     double end_time = 0.0;
-    double time_step = 0.0;
+    double maximum_time_step = 0.0;
     double time = 0.0;
     int num_steps = 0;
-    Output output;
     Output monitor;
 };
 
@@ -101,30 +86,175 @@ struct Space
     std::array<int, 3> ranks_per_dim = { 0, 0, 0 };
 };
 
+struct AbsorptionInput
+{
+    std::string type;
+    double coefficient = 0.0;
+    std::string geometry;
+    double fresnel_absorptivity = 0.0;
+    double conduction_absorptivity = 0.0;
+    double transition_aspect_ratio = 1.0;
+};
+
 struct Source
 {
-    double absorption = 0.0;
+    std::string type = "gaussian";
+    AbsorptionInput absorption;
     std::array<double, 3> two_sigma = { 0.0, 0.0, 0.0 };
     std::string scan_path_file;
+
+    // Tabulated planar profile and projected axial distribution.
+    std::string profile_file;
+    std::string coordinate_frame = "global";
+    double minimum_depth = 0.0;
+    double exponent_slope = 0.0;
+    double exponent_intercept = 1.0;
+
+    // Optional explicit, one-step-lagged isotherm-depth feedback.
+    bool transient_depth = false;
+    std::string depth_temperature = "liquidus";
+};
+
+struct TemperatureProperty
+{
+    double constant = 0.0;
+    std::vector<double> temperature;
+    std::vector<double> values;
+
+    bool isTabulated() const { return !temperature.empty(); }
+
+    bool isConstant() const
+    {
+        if ( !isTabulated() )
+            return true;
+        return !values.empty() &&
+               std::all_of( values.begin(), values.end(),
+                            [&]( const double entry )
+                            { return entry == values.front(); } );
+    }
+
+    double constantValue() const
+    {
+        return isTabulated() ? values.front() : constant;
+    }
+
+    double value( const double query_temperature ) const
+    {
+        if ( !isTabulated() )
+            return constant;
+        if ( query_temperature <= temperature.front() )
+            return values.front();
+        if ( query_temperature >= temperature.back() )
+            return values.back();
+
+        const auto upper = std::upper_bound(
+            temperature.begin(), temperature.end(), query_temperature );
+        const std::size_t high =
+            static_cast<std::size_t>( upper - temperature.begin() );
+        const std::size_t low = high - 1;
+        const double fraction = ( query_temperature - temperature[low] ) /
+                                ( temperature[high] - temperature[low] );
+        return values[low] + fraction * ( values[high] - values[low] );
+    }
+
+    double minimumValue() const
+    {
+        if ( !isTabulated() )
+            return constant;
+        return *std::min_element( values.begin(), values.end() );
+    }
+
+    double maximumValue() const
+    {
+        if ( !isTabulated() )
+            return constant;
+        return *std::max_element( values.begin(), values.end() );
+    }
 };
 
 struct Properties
 {
     double density = 0.0;
-    double specific_heat = 0.0;
-    double thermal_conductivity = 0.0;
-    double thermal_diffusivity = 0.0;
+    TemperatureProperty specific_heat;
+    TemperatureProperty thermal_conductivity;
+    // Conservative nonlinear-stencil bound. Conductivity and heat capacity
+    // can occur at different temperatures on neighboring nodes, so this is
+    // k_max / C_min rather than max(k/C).
+    double thermal_diffusivity_upper_bound = 0.0;
     double latent_heat = 0.0;
     double solidus = 0.0;
     double liquidus = 0.0;
+    static constexpr int lookup_table_points = 256;
+
+    bool isTemperatureDependent() const
+    {
+        return !specific_heat.isConstant() ||
+               !thermal_conductivity.isConstant();
+    }
 };
 
-struct Sampling
+enum class FunctionControl
 {
+    every_step,
+    output_count,
+    execute,
+    end
+};
+
+struct FunctionSchedule
+{
+    FunctionControl control = FunctionControl::end;
+    int count = 0;
+};
+
+struct SolidificationDataInput
+{
+    std::string name;
     std::string type;
     std::string format = "default";
-    std::string directory_name = "solidification";
+    std::string directory = "solidification";
+    FunctionSchedule execute;
+    FunctionSchedule write;
     bool enabled = false;
+};
+
+struct MeltPoolDimensionsInput
+{
+    std::string name;
+    bool enabled = false;
+    FunctionSchedule execute;
+    FunctionSchedule write;
+    std::array<bool, 2> isotherms = { true, true };
+    std::string coordinate_frame = "global";
+    std::string directory = "melt_pool_dimensions";
+};
+
+enum class FieldOutputField
+{
+    temperature,
+    volumetric_heat_source
+};
+
+inline const char* fieldOutputFieldName( const FieldOutputField field )
+{
+    return field == FieldOutputField::temperature ? "temperature"
+                                                  : "volumetric_heat_source";
+}
+
+struct FieldOutputInput
+{
+    std::string name;
+    std::string format = "bov";
+    bool enabled = false;
+    FunctionSchedule execute;
+    std::vector<FieldOutputField> fields = { FieldOutputField::temperature };
+};
+
+struct Functions
+{
+    SolidificationDataInput solidification;
+    MeltPoolDimensionsInput melt_pool_dimensions;
+    FieldOutputInput field_output;
 };
 
 struct TimeMonitor
@@ -163,15 +293,17 @@ struct TimeMonitor
         start_time = std::chrono::steady_clock::now();
     }
 
+    void setNumSteps( const int steps ) { num_steps = steps; }
+
     void write( int step )
     {
         update();
 
-        Info << "Time Step: " << step << "/" << num_steps << ", "
-             << "Elapsed: " << std::fixed << std::setprecision( 6 )
-             << elapsed_seconds.count() << " seconds, "
-             << "Total: " << std::fixed << std::setprecision( 6 )
-             << total_elapsed_time << " seconds" << std::endl;
+        FINCH_INFO << "Time Step: " << step << "/" << num_steps << ", "
+                   << "Elapsed: " << std::fixed << std::setprecision( 6 )
+                   << elapsed_seconds.count() << " seconds, "
+                   << "Total: " << std::fixed << std::setprecision( 6 )
+                   << total_elapsed_time << " seconds" << std::endl;
     }
 };
 
@@ -182,7 +314,8 @@ class Inputs
     Space space;
     Source source;
     Properties properties;
-    Sampling sampling;
+    BoundaryConditions boundary;
+    Functions functions;
     TimeMonitor time_monitor;
 
     int comm_rank;
@@ -210,64 +343,168 @@ class Inputs
 
     void write()
     {
-        Info << "Finch version: " << version() << " (" << commitHash() << ")"
-             << std::endl;
-        Info << "Simulation will be performed using parameters: " << std::endl;
+        FINCH_INFO << "Finch version: " << version() << " (" << commitHash()
+                   << ")" << std::endl;
+        FINCH_INFO << "Simulation will be performed using parameters: "
+                   << std::endl;
 
         // Print time
-        Info << "Time:" << std::endl;
-        Info << "  Co: " << time.Co << std::endl;
-        Info << "  Start Time: " << time.start_time << std::endl;
-        Info << "  End Time: " << time.end_time << std::endl;
-        Info << "  Num Output Steps: " << time.output.total_steps << std::endl;
-        Info << "  Num Monitor Steps: " << time.monitor.total_steps
-             << std::endl;
+        FINCH_INFO << "Time:" << std::endl;
+        FINCH_INFO << "  Maximum Fourier Number: "
+                   << time.maximum_fourier_number << std::endl;
+        FINCH_INFO << "  Start Time: " << time.start_time << std::endl;
+        FINCH_INFO << "  End Time: " << time.end_time << std::endl;
+        FINCH_INFO << "  Num Monitor Steps: " << time.monitor.total_steps
+                   << std::endl;
 
         // Print space
-        Info << "Space:" << std::endl;
-        Info << "  Initial temperature: " << space.initial_temperature
-             << std::endl;
-        Info << "  Cell Size: " << space.cell_size << std::endl;
-        Info << "  Global Low Corner:" << std::endl;
-        Info << "    X: " << space.global_low_corner[0] << std::endl;
-        Info << "    Y: " << space.global_low_corner[1] << std::endl;
-        Info << "    Z: " << space.global_low_corner[2] << std::endl;
-        Info << "  Global High Corner:" << std::endl;
-        Info << "    X: " << space.global_high_corner[0] << std::endl;
-        Info << "    Y: " << space.global_high_corner[1] << std::endl;
-        Info << "    Z: " << space.global_high_corner[2] << std::endl;
+        FINCH_INFO << "Space:" << std::endl;
+        FINCH_INFO << "  Initial temperature: " << space.initial_temperature
+                   << std::endl;
+        FINCH_INFO << "  Cell Size: " << space.cell_size << std::endl;
+        FINCH_INFO << "  Global Low Corner:" << std::endl;
+        FINCH_INFO << "    X: " << space.global_low_corner[0] << std::endl;
+        FINCH_INFO << "    Y: " << space.global_low_corner[1] << std::endl;
+        FINCH_INFO << "    Z: " << space.global_low_corner[2] << std::endl;
+        FINCH_INFO << "  Global High Corner:" << std::endl;
+        FINCH_INFO << "    X: " << space.global_high_corner[0] << std::endl;
+        FINCH_INFO << "    Y: " << space.global_high_corner[1] << std::endl;
+        FINCH_INFO << "    Z: " << space.global_high_corner[2] << std::endl;
 
         // Print properties
-        Info << "Properties:" << std::endl;
-        Info << "  Density: " << properties.density << std::endl;
-        Info << "  Specific Heat: " << properties.specific_heat << std::endl;
-        Info << "  Thermal Conductivity: " << properties.thermal_conductivity
-             << std::endl;
-        Info << "  Latent Heat: " << properties.latent_heat << std::endl;
-        Info << "  Solidus: " << properties.solidus << std::endl;
-        Info << "  Liquidus: " << properties.liquidus << std::endl;
-
-        // Print source
-        Info << "Source:" << std::endl;
-        Info << "  Absorption: " << source.absorption << std::endl;
-        Info << "  two-sigma:" << std::endl;
-        Info << "    X: " << source.two_sigma[0] << std::endl;
-        Info << "    Y: " << source.two_sigma[1] << std::endl;
-        Info << "    Z: " << source.two_sigma[2] << std::endl;
-        Info << "  scan path file: " << source.scan_path_file << std::endl;
-
-        // Print solidification output options
-        Info << "Sampling:" << std::endl;
-        if ( sampling.enabled )
+        FINCH_INFO << "Properties:" << std::endl;
+        FINCH_INFO << "  Density: " << properties.density << std::endl;
+        if ( properties.specific_heat.isTabulated() )
         {
-            Info << "  type: " << sampling.type << std::endl;
-            Info << "  format:" << sampling.format << std::endl;
-            Info << "  directory name:" << sampling.directory_name << std::endl;
+            FINCH_INFO << "  Specific Heat: "
+                       << properties.specific_heat.values.size()
+                       << " input points from "
+                       << properties.specific_heat.temperature.front() << " to "
+                       << properties.specific_heat.temperature.back() << " K"
+                       << std::endl;
         }
         else
         {
-            Info << "Skipping optional sampling." << std::endl;
+            FINCH_INFO << "  Specific Heat: "
+                       << properties.specific_heat.constant << std::endl;
         }
+        if ( properties.thermal_conductivity.isTabulated() )
+        {
+            FINCH_INFO << "  Thermal Conductivity: "
+                       << properties.thermal_conductivity.values.size()
+                       << " input points from "
+                       << properties.thermal_conductivity.temperature.front()
+                       << " to "
+                       << properties.thermal_conductivity.temperature.back()
+                       << " K" << std::endl;
+        }
+        else
+        {
+            FINCH_INFO << "  Thermal Conductivity: "
+                       << properties.thermal_conductivity.constant << std::endl;
+        }
+        FINCH_INFO << "  Latent Heat: " << properties.latent_heat << std::endl;
+        FINCH_INFO << "  Solidus: " << properties.solidus << std::endl;
+        FINCH_INFO << "  Liquidus: " << properties.liquidus << std::endl;
+
+        FINCH_INFO << "Boundary conditions:" << std::endl;
+        for ( int face = 0; face < 6; ++face )
+        {
+            const auto& condition = boundary.faces[face];
+            FINCH_INFO << "  " << boundary_face_names[face] << ": "
+                       << condition.type;
+            if ( condition.type == "dirichlet" || condition.type == "neumann" )
+            {
+                FINCH_INFO << " (" << condition.value << ")";
+            }
+            else if ( condition.type == "convection_radiation" )
+            {
+                FINCH_INFO << " (h=" << condition.convection_coefficient
+                           << ", emissivity=" << condition.emissivity
+                           << ", ambient=" << condition.ambient_temperature
+                           << " K)";
+            }
+            FINCH_INFO << std::endl;
+        }
+
+        // Print source
+        FINCH_INFO << "Source:" << std::endl;
+        FINCH_INFO << "  Type: " << source.type << std::endl;
+        FINCH_INFO << "  Absorption: " << source.absorption.type;
+        if ( source.absorption.type == "constant" )
+        {
+            FINCH_INFO << " (coefficient=" << source.absorption.coefficient
+                       << ")";
+        }
+        else
+        {
+            FINCH_INFO << " (geometry=" << source.absorption.geometry
+                       << ", fresnel=" << source.absorption.fresnel_absorptivity
+                       << ", conduction="
+                       << source.absorption.conduction_absorptivity
+                       << ", transition aspect ratio="
+                       << source.absorption.transition_aspect_ratio << ")";
+        }
+        FINCH_INFO << std::endl;
+        if ( source.type == "gaussian" )
+        {
+            FINCH_INFO << "  two-sigma:" << std::endl;
+            FINCH_INFO << "    X: " << source.two_sigma[0] << std::endl;
+            FINCH_INFO << "    Y: " << source.two_sigma[1] << std::endl;
+            FINCH_INFO << "    Z: " << source.two_sigma[2] << std::endl;
+        }
+        else
+        {
+            FINCH_INFO << "  Profile file: " << source.profile_file
+                       << std::endl;
+            FINCH_INFO << "  Coordinate frame: " << source.coordinate_frame
+                       << std::endl;
+            FINCH_INFO << "  Minimum depth: " << source.minimum_depth
+                       << std::endl;
+            FINCH_INFO << "  Axial exponent slope/intercept: "
+                       << source.exponent_slope << "/"
+                       << source.exponent_intercept << std::endl;
+            if ( source.transient_depth )
+                FINCH_INFO << "  Transient depth: " << source.depth_temperature
+                           << " isotherm" << std::endl;
+        }
+        FINCH_INFO << "  scan path file: " << source.scan_path_file
+                   << std::endl;
+
+        FINCH_INFO << "Functions:" << std::endl;
+        if ( functions.solidification.enabled )
+        {
+            FINCH_INFO
+                << "  " << functions.solidification.name
+                << ": solidification_data every step, write at end, format "
+                << functions.solidification.format << ", directory "
+                << functions.solidification.directory << std::endl;
+        }
+        if ( functions.melt_pool_dimensions.enabled )
+        {
+            FINCH_INFO << "  " << functions.melt_pool_dimensions.name
+                       << ": melt_pool_dimensions, "
+                       << functions.melt_pool_dimensions.execute.count
+                       << " executions in the "
+                       << functions.melt_pool_dimensions.coordinate_frame
+                       << " frame, directory "
+                       << functions.melt_pool_dimensions.directory << std::endl;
+        }
+        if ( functions.field_output.enabled )
+        {
+            FINCH_INFO << "  " << functions.field_output.name
+                       << ": field_output, "
+                       << functions.field_output.execute.count
+                       << " executions, format "
+                       << functions.field_output.format << ", fields";
+            for ( const auto field : functions.field_output.fields )
+                FINCH_INFO << ' ' << fieldOutputFieldName( field );
+            FINCH_INFO << std::endl;
+        }
+        if ( !functions.solidification.enabled &&
+             !functions.melt_pool_dimensions.enabled &&
+             !functions.field_output.enabled )
+            FINCH_INFO << "  None" << std::endl;
     }
 
   private:
@@ -344,7 +581,8 @@ class Inputs
 
     bool requiredSectionsFound( const std::vector<bool>& found ) const
     {
-        // Sampling is optional; the other four sections are required.
+        // Time, space, properties, and source are required. Boundary and
+        // functions are optional.
         return std::all_of( found.begin(), found.begin() + 4,
                             []( const bool value ) { return value; } );
     }
@@ -354,11 +592,11 @@ class Inputs
     {
         // Input file is either a Finch input file or an ExaCA input file with a
         // Finch object
-        Info << "Parsing input file " << input_file_number << std::endl;
+        FINCH_INFO << "Parsing input file " << input_file_number << std::endl;
         nlohmann::json input_data_raw = readInputDocument( comm, filename );
         if ( !input_data_raw.contains( "Finch" ) )
         {
-            // This is a Finch input file and should have all 5 sections
+            // This is a standalone Finch input file.
             std::vector<bool> found_sections = readSections( input_data_raw );
             if ( !requiredSectionsFound( found_sections ) )
                 throw std::runtime_error(
@@ -371,7 +609,8 @@ class Inputs
             nlohmann::json top_level_input_data = input_data_raw["Finch"];
             // Sections to parse
             std::vector<std::string> input_file_sections = {
-                "time", "space", "properties", "source", "sampling" };
+                "time",   "space",    "properties",
+                "source", "boundary", "functions" };
             const int num_inp_file_sections = input_file_sections.size();
             if ( !top_level_input_data.contains( "layers" ) )
             {
@@ -398,11 +637,11 @@ class Inputs
                     if ( ( found_sections_top_level[n] ) &&
                          ( found_sections_layer_level[n] ) )
                     {
-                        Info << "Warning: Finch input object "
-                             << input_file_sections[n]
-                             << " has multiple values given; values from "
-                                "`layers` object will be used"
-                             << std::endl;
+                        FINCH_INFO << "Warning: Finch input object "
+                                   << input_file_sections[n]
+                                   << " has multiple values given; values from "
+                                      "`layers` object will be used"
+                                   << std::endl;
                     }
                     else if ( n < 4 && ( !found_sections_top_level[n] ) &&
                               ( !found_sections_layer_level[n] ) )
@@ -425,17 +664,53 @@ class Inputs
         const auto finite = []( const double value )
         { return std::isfinite( value ); };
 
-        if ( !finite( time.Co ) || time.Co <= 0.0 || time.Co > 1.0 / 6.0 )
+        const auto validate_temperature_property =
+            [&]( const TemperatureProperty& property, const std::string& name )
+        {
+            if ( !property.isTabulated() )
+            {
+                if ( !finite( property.constant ) || property.constant <= 0.0 )
+                    throw std::runtime_error( "Error: properties." + name +
+                                              " must be finite and positive" );
+                return;
+            }
+
+            if ( property.temperature.size() < 2 ||
+                 property.temperature.size() != property.values.size() )
+                throw std::runtime_error(
+                    "Error: tabulated properties." + name +
+                    " requires equally sized temperature and values "
+                    "arrays with at least two entries" );
+            for ( std::size_t i = 0; i < property.temperature.size(); ++i )
+            {
+                if ( !finite( property.temperature[i] ) ||
+                     !finite( property.values[i] ) ||
+                     property.values[i] <= 0.0 )
+                    throw std::runtime_error(
+                        "Error: tabulated properties." + name +
+                        " temperatures must be finite and values must be "
+                        "finite and positive" );
+                if ( i > 0 &&
+                     property.temperature[i] <= property.temperature[i - 1] )
+                    throw std::runtime_error(
+                        "Error: tabulated properties." + name +
+                        " temperatures must be strictly increasing" );
+            }
+        };
+
+        if ( !finite( time.maximum_fourier_number ) ||
+             time.maximum_fourier_number <= 0.0 ||
+             time.maximum_fourier_number > 1.0 / 6.0 )
             throw std::runtime_error(
-                "Error: time.Co must be in (0, 1/6] for the 3D explicit "
-                "diffusion stencil" );
+                "Error: time.maximum_fourier_number must be in (0, 1/6] for "
+                "the 3D explicit diffusion stencil" );
         if ( !finite( time.start_time ) || !finite( time.end_time ) ||
              time.end_time <= time.start_time )
             throw std::runtime_error(
                 "Error: end_time must be finite and greater than start_time" );
-        if ( time.output.total_steps < 0 || time.monitor.total_steps < 0 )
+        if ( time.monitor.total_steps < 0 )
             throw std::runtime_error(
-                "Error: output and monitor step counts cannot be negative" );
+                "Error: monitor step count cannot be negative" );
 
         if ( !finite( space.initial_temperature ) ||
              !finite( space.cell_size ) || space.cell_size <= 0.0 )
@@ -464,32 +739,178 @@ class Inputs
         }
 
         if ( !finite( properties.density ) || properties.density <= 0.0 ||
-             !finite( properties.specific_heat ) ||
-             properties.specific_heat <= 0.0 ||
-             !finite( properties.thermal_conductivity ) ||
-             properties.thermal_conductivity <= 0.0 ||
              !finite( properties.latent_heat ) ||
              properties.latent_heat < 0.0 || !finite( properties.solidus ) ||
              !finite( properties.liquidus ) ||
              properties.liquidus <= properties.solidus )
             throw std::runtime_error(
-                "Error: material properties must be finite, density, heat "
-                "capacity, and conductivity must be positive, latent heat "
-                "must be nonnegative, and liquidus must exceed solidus" );
-
-        if ( !finite( source.absorption ) || source.absorption < 0.0 ||
-             source.absorption > 1.0 || source.scan_path_file.empty() )
+                "Error: density must be finite and positive, latent heat must "
+                "be finite and nonnegative, and finite liquidus must exceed "
+                "solidus" );
+        validate_temperature_property( properties.specific_heat,
+                                       "specific_heat" );
+        validate_temperature_property( properties.thermal_conductivity,
+                                       "thermal_conductivity" );
+        if ( source.scan_path_file.empty() )
             throw std::runtime_error(
-                "Error: source absorption must be in [0,1] and "
-                "scan_path_file cannot be empty" );
-        for ( const double sigma : source.two_sigma )
-            if ( !finite( sigma ) || sigma <= 0.0 )
+                "Error: source.scan_path_file cannot be empty" );
+
+        const auto valid_absorptivity = [&]( const double value )
+        { return finite( value ) && value >= 0.0 && value <= 1.0; };
+        if ( source.absorption.type == "constant" )
+        {
+            if ( !valid_absorptivity( source.absorption.coefficient ) )
                 throw std::runtime_error(
-                    "Error: every source two_sigma value must be positive" );
-
-        if ( sampling.enabled && sampling.directory_name.empty() )
+                    "Error: constant absorption coefficient must be in "
+                    "[0,1]" );
+        }
+        else if ( source.absorption.type == "kelly" )
+        {
+            if ( source.absorption.geometry != "cone" &&
+                 source.absorption.geometry != "cylinder" )
+                throw std::runtime_error(
+                    "Error: Kelly absorption geometry must be cone or "
+                    "cylinder" );
+            if ( !finite( source.absorption.fresnel_absorptivity ) ||
+                 source.absorption.fresnel_absorptivity <= 0.0 ||
+                 source.absorption.fresnel_absorptivity > 1.0 ||
+                 !valid_absorptivity(
+                     source.absorption.conduction_absorptivity ) ||
+                 !finite( source.absorption.transition_aspect_ratio ) ||
+                 source.absorption.transition_aspect_ratio < 0.0 )
+                throw std::runtime_error(
+                    "Error: Kelly absorptivities must be in [0,1] with "
+                    "positive fresnel_absorptivity, and "
+                    "transition_aspect_ratio must be nonnegative" );
+            if ( source.type != "tabulated" || !source.transient_depth ||
+                 source.depth_temperature != "liquidus" )
+                throw std::runtime_error(
+                    "Error: Kelly absorption requires a tabulated source "
+                    "with liquidus transient_depth" );
+        }
+        else
             throw std::runtime_error(
-                "Error: sampling directory_name cannot be empty" );
+                "Error: source.absorption.type must be constant or kelly" );
+
+        if ( source.type == "gaussian" )
+        {
+            for ( const double sigma : source.two_sigma )
+                if ( !finite( sigma ) || sigma <= 0.0 )
+                    throw std::runtime_error(
+                        "Error: every source two_sigma value must be "
+                        "positive" );
+        }
+        else if ( source.type == "tabulated" )
+        {
+            if ( source.profile_file.empty() )
+                throw std::runtime_error(
+                    "Error: tabulated source profile_file cannot be empty" );
+            if ( source.coordinate_frame != "global" &&
+                 source.coordinate_frame != "scan_path" )
+                throw std::runtime_error(
+                    "Error: source coordinate_frame must be global or "
+                    "scan_path" );
+            if ( !finite( source.minimum_depth ) ||
+                 source.minimum_depth <= 0.0 ||
+                 !finite( source.exponent_slope ) ||
+                 !finite( source.exponent_intercept ) )
+                throw std::runtime_error(
+                    "Error: tabulated source minimum_depth must be positive "
+                    "and axial-profile coefficients must be finite" );
+            if ( source.transient_depth )
+            {
+                if ( source.depth_temperature != "solidus" &&
+                     source.depth_temperature != "liquidus" )
+                    throw std::runtime_error(
+                        "Error: transient_depth.temperature must be solidus "
+                        "or liquidus" );
+            }
+        }
+        else
+            throw std::runtime_error(
+                "Error: source type must be gaussian or tabulated" );
+
+        if ( functions.solidification.enabled &&
+             functions.solidification.directory.empty() )
+            throw std::runtime_error(
+                "Error: solidification_data directory cannot be empty" );
+
+        if ( functions.melt_pool_dimensions.enabled )
+        {
+            const auto& melt_pool = functions.melt_pool_dimensions;
+            if ( melt_pool.execute.count <= 0 )
+                throw std::runtime_error(
+                    "Error: melt_pool_dimensions output count must be "
+                    "positive" );
+            if ( melt_pool.coordinate_frame != "global" &&
+                 melt_pool.coordinate_frame != "scan_path" )
+                throw std::runtime_error(
+                    "Error: melt_pool_dimensions.coordinate_frame must be "
+                    "global or scan_path" );
+            if ( melt_pool.directory.empty() )
+                throw std::runtime_error(
+                    "Error: melt_pool_dimensions directory cannot be "
+                    "empty" );
+        }
+
+        if ( functions.field_output.enabled )
+        {
+            if ( functions.field_output.execute.count <= 0 )
+                throw std::runtime_error(
+                    "Error: field_output output count must be positive" );
+            if ( functions.field_output.format != "bov" &&
+                 functions.field_output.format != "adios2" )
+                throw std::runtime_error(
+                    "Error: field_output format must be bov or adios2" );
+            if ( functions.field_output.format == "bov" &&
+                 std::any_of( functions.field_output.fields.begin(),
+                              functions.field_output.fields.end(),
+                              []( const auto field ) {
+                                  return field != FieldOutputField::temperature;
+                              } ) )
+                throw std::runtime_error(
+                    "Error: BOV field_output supports only temperature; use "
+                    "adios2 for derived fields" );
+#if !Finch_ENABLE_ADIOS2
+            if ( functions.field_output.format == "adios2" )
+                throw std::runtime_error(
+                    "Error: field_output format adios2 requires a Finch "
+                    "build with Finch_ENABLE_ADIOS2=ON" );
+#endif
+        }
+
+        for ( int face = 0; face < 6; ++face )
+        {
+            const auto& condition = boundary.faces[face];
+            const std::string prefix =
+                "Error: boundary." + std::string( boundary_face_names[face] ) +
+                " ";
+            if ( condition.type == "dirichlet" || condition.type == "neumann" )
+            {
+                if ( !finite( condition.value ) )
+                    throw std::runtime_error( prefix + "value must be finite" );
+            }
+            else if ( condition.type == "convection_radiation" )
+            {
+                if ( !finite( condition.convection_coefficient ) ||
+                     condition.convection_coefficient < 0.0 )
+                    throw std::runtime_error(
+                        prefix + "h must be finite and nonnegative" );
+                if ( !finite( condition.emissivity ) ||
+                     condition.emissivity < 0.0 || condition.emissivity > 1.0 )
+                    throw std::runtime_error( prefix +
+                                              "emissivity must be in [0,1]" );
+                if ( !finite( condition.ambient_temperature ) ||
+                     condition.ambient_temperature <= 0.0 )
+                    throw std::runtime_error(
+                        prefix +
+                        "ambient_temperature must be positive and finite" );
+            }
+            else if ( condition.type != "adiabatic" )
+                throw std::runtime_error(
+                    prefix + "type must be adiabatic, dirichlet, neumann, or "
+                             "convection_radiation" );
+        }
     }
 
     void selectRankDecomposition()
@@ -515,10 +936,10 @@ class Inputs
         }
 
         if ( requested_product != 0 )
-            Info << "Ignoring ranks_per_dim because its product does not "
-                    "match the MPI communicator size; selecting a "
-                    "geometry-aware decomposition."
-                 << std::endl;
+            FINCH_INFO << "Ignoring ranks_per_dim because its product does not "
+                          "match the MPI communicator size; selecting a "
+                          "geometry-aware decomposition."
+                       << std::endl;
 
         double best_cost = std::numeric_limits<double>::max();
         std::array<int, 3> best = { 0, 0, 0 };
@@ -556,31 +977,37 @@ class Inputs
 
     void calcAuxiliaryProperties( MPI_Comm comm )
     {
-        // create auxiliary properties
-        properties.thermal_diffusivity =
-            ( properties.thermal_conductivity ) /
-            ( properties.density * properties.specific_heat );
+        // Use a conservative fixed stability bound across the property range.
+        // This avoids a device reduction and MPI collective every timestep.
+        const double minimum_heat_capacity =
+            properties.specific_heat.minimumValue();
+        const double maximum_conductivity =
+            properties.thermal_conductivity.maximumValue();
+        properties.thermal_diffusivity_upper_bound =
+            maximum_conductivity /
+            ( properties.density * minimum_heat_capacity );
 
-        time.time_step = ( time.Co * space.cell_size * space.cell_size ) /
-                         ( properties.thermal_diffusivity );
+        time.maximum_time_step = ( time.maximum_fourier_number *
+                                   space.cell_size * space.cell_size ) /
+                                 properties.thermal_diffusivity_upper_bound;
 
-        Info << "Calculated time step: " << time.time_step << std::endl;
+        FINCH_INFO << "Maximum diffusion-stable time step: "
+                   << time.maximum_time_step << std::endl;
 
         time.time = time.start_time;
 
         const double duration = time.end_time - time.start_time;
-        const double step_count = duration / time.time_step;
-        if ( !std::isfinite( time.time_step ) || time.time_step <= 0.0 ||
-             !std::isfinite( step_count ) ||
+        const double step_count = duration / time.maximum_time_step;
+        if ( !std::isfinite( time.maximum_time_step ) ||
+             time.maximum_time_step <= 0.0 || !std::isfinite( step_count ) ||
              step_count > std::numeric_limits<int>::max() - 1.0 )
             throw std::runtime_error( "Error: calculated timestep or step "
                                       "count is not representable" );
-        time.num_steps = static_cast<int>(
-            std::ceil( duration / time.time_step -
-                       16.0 * std::numeric_limits<double>::epsilon() ) );
-
-        time.output.setInterval( time.num_steps );
-        time.monitor.setInterval( time.num_steps );
+        const double step_tolerance = 128.0 *
+                                      std::numeric_limits<double>::epsilon() *
+                                      std::max( 1.0, std::abs( step_count ) );
+        time.num_steps = std::max(
+            1, static_cast<int>( std::ceil( step_count - step_tolerance ) ) );
 
         // initialize time monitoring
         time_monitor = TimeMonitor( comm, time );
@@ -590,7 +1017,7 @@ class Inputs
     // list of which sections were found
     std::vector<bool> readSections( nlohmann::json db )
     {
-        std::vector<bool> found_sections( 5, false );
+        std::vector<bool> found_sections( 6, false );
         if ( db.contains( "time" ) )
         {
             readInputTime( db );
@@ -611,10 +1038,15 @@ class Inputs
             readInputSource( db );
             found_sections[3] = true;
         }
-        if ( db.contains( "sampling" ) )
+        if ( db.contains( "boundary" ) )
         {
-            readInputSampling( db );
+            readInputBoundary( db );
             found_sections[4] = true;
+        }
+        if ( db.contains( "functions" ) )
+        {
+            readInputFunctions( db );
+            found_sections[5] = true;
         }
         return found_sections;
     }
@@ -622,11 +1054,12 @@ class Inputs
     void readInputTime( nlohmann::json db )
     {
         // Read time components
-        time.Co = db["time"]["Co"];
-        time.start_time = db["time"]["start_time"];
-        time.end_time = db["time"]["end_time"];
-        time.output.total_steps = db["time"]["total_output_steps"];
-        time.monitor.total_steps = db["time"]["total_monitor_steps"];
+        const auto& input = db.at( "time" );
+        time.maximum_fourier_number =
+            input.value( "maximum_fourier_number", 0.125 );
+        time.start_time = input.at( "start_time" );
+        time.end_time = input.at( "end_time" );
+        time.monitor.total_steps = input.value( "total_monitor_steps", 0 );
     }
 
     void readInputSpace( nlohmann::json db )
@@ -655,59 +1088,301 @@ class Inputs
     {
         // Read properties components
         properties.density = db["properties"]["density"];
-        properties.specific_heat = db["properties"]["specific_heat"];
+        properties.specific_heat =
+            readTemperatureProperty( db["properties"], "specific_heat" );
         properties.thermal_conductivity =
-            db["properties"]["thermal_conductivity"];
+            readTemperatureProperty( db["properties"], "thermal_conductivity" );
         properties.latent_heat = db["properties"]["latent_heat"];
         properties.solidus = db["properties"]["solidus"];
         properties.liquidus = db["properties"]["liquidus"];
     }
 
+    TemperatureProperty readTemperatureProperty( const nlohmann::json& input,
+                                                 const std::string& name )
+    {
+        const auto& value = input.at( name );
+        TemperatureProperty property;
+        if ( value.is_number() )
+        {
+            property.constant = value.get<double>();
+            return property;
+        }
+        if ( !value.is_object() )
+            throw std::runtime_error( "Error: properties." + name +
+                                      " must be a number or table object" );
+
+        if ( !value.contains( "temperature" ) || !value.contains( "values" ) )
+            throw std::runtime_error(
+                "Error: tabulated properties." + name +
+                " requires temperature and values arrays" );
+
+        property.temperature =
+            value.at( "temperature" ).get<std::vector<double>>();
+        property.values = value.at( "values" ).get<std::vector<double>>();
+        return property;
+    }
+
     void readInputSource( nlohmann::json db )
     {
         // Read heat source components
-        source.absorption = db["source"]["absorption"];
-        source.two_sigma = db["source"]["two_sigma"];
+        source = Source{};
+        const auto& input = db.at( "source" );
+        source.type = input.value( "type", "gaussian" );
+        source.scan_path_file = input.at( "scan_path_file" );
 
-        source.scan_path_file = db["source"]["scan_path_file"];
+        const auto& absorption = input.at( "absorption" );
+        if ( !absorption.is_object() )
+            throw std::runtime_error(
+                "Error: source.absorption must be an object" );
+        source.absorption.type = absorption.at( "type" );
+        if ( source.absorption.type == "constant" )
+            source.absorption.coefficient = absorption.at( "coefficient" );
+        else if ( source.absorption.type == "kelly" )
+        {
+            source.absorption.geometry = absorption.at( "geometry" );
+            source.absorption.fresnel_absorptivity =
+                absorption.at( "fresnel_absorptivity" );
+            source.absorption.conduction_absorptivity =
+                absorption.at( "conduction_absorptivity" );
+            source.absorption.transition_aspect_ratio =
+                absorption.value( "transition_aspect_ratio", 1.0 );
+        }
+
+        if ( source.type == "gaussian" )
+            source.two_sigma =
+                input.at( "two_sigma" ).get<std::array<double, 3>>();
+        else if ( source.type == "tabulated" )
+        {
+            source.profile_file = input.at( "profile_file" ).get<std::string>();
+            source.coordinate_frame =
+                input.value( "coordinate_frame", "global" );
+            source.minimum_depth = input.at( "minimum_depth" );
+
+            const auto& axial = input.at( "axial_profile" );
+            source.exponent_slope = axial.at( "exponent_slope" );
+            source.exponent_intercept = axial.at( "exponent_intercept" );
+
+            if ( input.contains( "transient_depth" ) )
+            {
+                const auto& transient = input.at( "transient_depth" );
+                if ( !transient.is_object() )
+                    throw std::runtime_error(
+                        "Error: source.transient_depth must be an object" );
+                source.transient_depth = true;
+                source.depth_temperature =
+                    transient.value( "temperature", "liquidus" );
+            }
+        }
     }
 
-    void readInputSampling( nlohmann::json db )
+    FunctionSchedule readFunctionSchedule( const nlohmann::json& function,
+                                           const std::string& key,
+                                           const FunctionControl fallback,
+                                           const std::string& context )
     {
-        // Read sampling components
-        sampling = Sampling{};
-        if ( db.contains( "sampling" ) )
+        FunctionSchedule result;
+        result.control = fallback;
+        if ( !function.contains( key ) )
+            return result;
+
+        const auto& schedule = function.at( key );
+        if ( !schedule.is_object() )
+            throw std::runtime_error( "Error: " + context + "." + key +
+                                      " must be an object" );
+
+        const std::string control = schedule.at( "control" );
+        if ( control == "every_step" )
+            result.control = FunctionControl::every_step;
+        else if ( control == "output_count" )
         {
-            const std::string sampling_type = db["sampling"]["type"];
+            result.control = FunctionControl::output_count;
+            result.count = schedule.at( "count" );
+        }
+        else if ( control == "execute" )
+            result.control = FunctionControl::execute;
+        else if ( control == "end" )
+            result.control = FunctionControl::end;
+        else
+            throw std::runtime_error( "Error: unsupported control " + control +
+                                      " in " + context + "." + key );
+        return result;
+    }
 
-            if ( sampling_type == "solidification_data" )
+    void readInputBoundary( const nlohmann::json& db )
+    {
+        boundary = BoundaryConditions{};
+        const auto& input = db.at( "boundary" );
+        if ( !input.is_object() )
+            throw std::runtime_error( "Error: boundary must be a JSON object" );
+
+        for ( int face = 0; face < 6; ++face )
+        {
+            const char* name = boundary_face_names[face];
+            if ( !input.contains( name ) )
+                continue;
+
+            const auto& face_input = input.at( name );
+            if ( !face_input.is_object() )
+                throw std::runtime_error( "Error: boundary." +
+                                          std::string( name ) +
+                                          " must be a JSON object" );
+
+            auto& condition = boundary.faces[face];
+            condition.type = face_input.at( "type" ).get<std::string>();
+
+            if ( condition.type == "dirichlet" )
+                condition.value = face_input.at( "value" ).get<double>();
+            else if ( condition.type == "neumann" )
+                condition.value = face_input.at( "gradient" ).get<double>();
+            else if ( condition.type == "convection_radiation" )
             {
-                sampling.type = sampling_type;
-                sampling.enabled = true;
+                condition.convection_coefficient =
+                    face_input.at( "h" ).get<double>();
+                condition.emissivity =
+                    face_input.at( "emissivity" ).get<double>();
+                condition.ambient_temperature =
+                    face_input.at( "ambient_temperature" ).get<double>();
+            }
+        }
+    }
+
+    void readInputFunctions( const nlohmann::json& db )
+    {
+        functions = Functions{};
+        const auto& input = db.at( "functions" );
+        if ( !input.is_object() )
+            throw std::runtime_error(
+                "Error: functions must be a JSON object" );
+
+        for ( const auto& item : input.items() )
+        {
+            const std::string& name = item.key();
+            const auto& value = item.value();
+            if ( !value.is_object() )
+                throw std::runtime_error( "Error: functions." + name +
+                                          " must be an object" );
+
+            const std::string context = "functions." + name;
+            const std::string type = value.at( "type" );
+            if ( type == "solidification_data" )
+            {
+                auto& function = functions.solidification;
+                if ( function.enabled )
+                    throw std::runtime_error(
+                        "Error: functions may contain one "
+                        "solidification_data entry" );
+                function.enabled = true;
+                function.name = name;
+                function.type = type;
+                function.execute = readFunctionSchedule(
+                    value, "execute", FunctionControl::every_step, context );
+                function.write = readFunctionSchedule(
+                    value, "write", FunctionControl::end, context );
+                if ( function.execute.control != FunctionControl::every_step ||
+                     function.write.control != FunctionControl::end )
+                    throw std::runtime_error(
+                        "Error: solidification_data execute control must be "
+                        "every_step and write control must be end" );
+                function.format = value.value( "format", "default" );
+                if ( function.format != "default" &&
+                     function.format != "exaca" )
+                    throw std::runtime_error(
+                        "Error: solidification_data format must be default "
+                        "or exaca" );
+                function.directory =
+                    value.value( "directory", "solidification" );
+            }
+            else if ( type == "melt_pool_dimensions" )
+            {
+                auto& function = functions.melt_pool_dimensions;
+                if ( function.enabled )
+                    throw std::runtime_error(
+                        "Error: functions may contain one "
+                        "melt_pool_dimensions entry" );
+                function.enabled = true;
+                function.name = name;
+                function.execute = readFunctionSchedule(
+                    value, "execute", FunctionControl::output_count, context );
+                function.write = readFunctionSchedule(
+                    value, "write", FunctionControl::execute, context );
+                if ( function.execute.control !=
+                         FunctionControl::output_count ||
+                     function.write.control != FunctionControl::execute )
+                    throw std::runtime_error(
+                        "Error: melt_pool_dimensions execute control must be "
+                        "output_count and write control must be execute" );
+                function.isotherms = { false, false };
+                const auto isotherms = value.value(
+                    "isotherms",
+                    std::vector<std::string>{ "solidus", "liquidus" } );
+                for ( const auto& isotherm : isotherms )
+                {
+                    if ( isotherm == "solidus" )
+                        function.isotherms[0] = true;
+                    else if ( isotherm == "liquidus" )
+                        function.isotherms[1] = true;
+                    else
+                        throw std::runtime_error(
+                            "Error: melt_pool_dimensions isotherms must be "
+                            "solidus or liquidus" );
+                }
+                if ( !function.isotherms[0] && !function.isotherms[1] )
+                    throw std::runtime_error(
+                        "Error: melt_pool_dimensions requires at least one "
+                        "isotherm" );
+                function.coordinate_frame =
+                    value.value( "coordinate_frame", "global" );
+                function.directory =
+                    value.value( "directory", "melt_pool_dimensions" );
+            }
+            else if ( type == "field_output" )
+            {
+                auto& function = functions.field_output;
+                if ( function.enabled )
+                    throw std::runtime_error(
+                        "Error: functions may contain one field_output entry" );
+                function.enabled = true;
+                function.name = name;
+                function.execute = readFunctionSchedule(
+                    value, "execute", FunctionControl::output_count, context );
+                if ( function.execute.control != FunctionControl::output_count )
+                    throw std::runtime_error(
+                        "Error: field_output execute control must be "
+                        "output_count" );
+                if ( value.contains( "write" ) &&
+                     readFunctionSchedule( value, "write",
+                                           FunctionControl::execute, context )
+                             .control != FunctionControl::execute )
+                    throw std::runtime_error(
+                        "Error: field_output writes when it executes" );
+                const auto fields = value.value(
+                    "fields", std::vector<std::string>{ "temperature" } );
+                function.fields.clear();
+                for ( const auto& field : fields )
+                {
+                    if ( field == "temperature" )
+                        function.fields.push_back(
+                            FieldOutputField::temperature );
+                    else if ( field == "volumetric_heat_source" )
+                        function.fields.push_back(
+                            FieldOutputField::volumetric_heat_source );
+                    else
+                        throw std::runtime_error(
+                            "Error: unsupported field_output field " + field );
+                }
+                if ( function.fields.empty() )
+                    throw std::runtime_error(
+                        "Error: field_output fields cannot be empty" );
+#if Finch_ENABLE_ADIOS2
+                const std::string default_format = "adios2";
+#else
+                const std::string default_format = "bov";
+#endif
+                function.format = value.value( "format", default_format );
             }
             else
-                throw std::runtime_error( "Error: unsupported sampling type " +
-                                          sampling_type );
-
-            const std::string sampling_format =
-                db["sampling"].value( "format", "default" );
-
-            if ( sampling_format == "exaca" )
-            {
-                sampling.format = sampling_format;
-            }
-            else if ( sampling_format == "default" )
-            {
-                sampling.format = "default";
-            }
-            else
-                throw std::runtime_error(
-                    "Error: sampling format must be default or exaca" );
-
-            if ( db["sampling"].contains( "directory_name" ) )
-            {
-                sampling.directory_name = db["sampling"]["directory_name"];
-            }
+                throw std::runtime_error( "Error: unsupported function type " +
+                                          type );
         }
     }
 };

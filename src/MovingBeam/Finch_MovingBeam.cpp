@@ -13,6 +13,7 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 
@@ -25,6 +26,7 @@ MovingBeam::MovingBeam( const std::string& scan_path_file, MPI_Comm comm )
     : path( 1, Segment() )
     , index_( 0 )
     , position_( { 0.0, 0.0, 0.0 } )
+    , direction_( { 1.0, 0.0, 0.0 } )
     , power_( 0.0 )
     , endTime_( 0.0 )
     , current_time_( 0.0 )
@@ -140,6 +142,7 @@ void MovingBeam::move( const double time )
     }
 
     // update the current index of the path
+    const int previous_index = index_;
     index_ = findIndex( time );
 
     const int i = index_;
@@ -152,6 +155,22 @@ void MovingBeam::move( const double time )
     else
     {
         double dt = path[i].time() - path[i - 1].time();
+
+        if ( i != previous_index )
+        {
+            const double direction_x =
+                path[i].position()[0] - path[i - 1].position()[0];
+            const double direction_y =
+                path[i].position()[1] - path[i - 1].position()[1];
+            const double direction_norm = std::sqrt(
+                direction_x * direction_x + direction_y * direction_y );
+            if ( direction_norm > eps )
+            {
+                direction_[0] = direction_x / direction_norm;
+                direction_[1] = direction_y / direction_norm;
+                direction_[2] = 0.0;
+            }
+        }
 
         if ( dt > 0 )
         {
@@ -206,9 +225,51 @@ int MovingBeam::findIndex( const double time )
         }
     }
 
-    return std::min( std::max( i, 1 ), n );
+    return i;
 }
 
 bool MovingBeam::activePath() const { return current_time_ <= endTime_ + eps; }
+
+void MovingBeam::appendDiscontinuityTimes( std::vector<double>& times ) const
+{
+    const auto velocity = [&]( const std::size_t i )
+    {
+        std::array<double, 3> result = { 0.0, 0.0, 0.0 };
+        if ( path[i].mode() != 0 )
+            return result;
+        const double duration = path[i].time() - path[i - 1].time();
+        if ( duration > 0.0 )
+            for ( int d = 0; d < 3; ++d )
+                result[d] =
+                    ( path[i].position()[d] - path[i - 1].position()[d] ) /
+                    duration;
+        return result;
+    };
+    const auto changed = []( const double lhs, const double rhs )
+    {
+        return std::abs( lhs - rhs ) >
+               64.0 * std::numeric_limits<double>::epsilon() *
+                   std::max( { 1.0, std::abs( lhs ), std::abs( rhs ) } );
+    };
+
+    for ( std::size_t i = 1; i + 1 < path.size(); ++i )
+    {
+        bool discontinuity = changed( path[i].power(), path[i + 1].power() );
+        const auto before = velocity( i );
+        const auto after = velocity( i + 1 );
+        for ( int d = 0; d < 3; ++d )
+            discontinuity = discontinuity || changed( before[d], after[d] );
+
+        if ( path[i].mode() == 1 && path[i + 1].mode() == 1 )
+            for ( int d = 0; d < 3; ++d )
+                discontinuity =
+                    discontinuity ||
+                    changed( path[i].position()[d], path[i + 1].position()[d] );
+
+        if ( discontinuity && path[i].time() <= endTime_ + eps )
+            times.push_back( path[i].time() );
+    }
+    times.push_back( endTime_ );
+}
 
 } // namespace Finch

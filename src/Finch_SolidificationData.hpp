@@ -56,6 +56,7 @@ class SolidificationData
     double liquidus_ = 0.0;
     double cell_size_ = 0.0;
     bool enabled_ = false;
+    SolidificationDataInput input_;
 
     exec_space exec_space_;
 
@@ -76,11 +77,13 @@ class SolidificationData
     // Default constructor
     SolidificationData() = default;
     // constructor
-    SolidificationData( const Inputs& inputs, Grid<memory_space>& grid )
+    SolidificationData( const SolidificationDataInput& input,
+                        const Inputs& inputs, Grid<memory_space>& grid )
         : mpi_rank_( grid.comm_rank )
         , liquidus_( inputs.properties.liquidus )
         , cell_size_( inputs.space.cell_size )
-        , enabled_( inputs.sampling.enabled )
+        , enabled_( input.enabled )
+        , input_( input )
         , exec_space_( grid.executionSpace() )
     {
         count = view_int( "count", 1 );
@@ -194,8 +197,7 @@ class SolidificationData
             return;
         }
 
-        Kokkos::Profiling::ScopedRegion region(
-            "Finch::solidification_sampling" );
+        Kokkos::Profiling::ScopedRegion region( "Finch::solidification_data" );
         updateEvents( grid, time, dt );
 
         // This is the sole synchronization needed by event collection in a
@@ -256,7 +258,7 @@ class SolidificationData
     }
 
     // Write the solidification data to separate files for each MPI rank
-    void write( Sampling sampling_inputs, MPI_Comm comm )
+    void write( MPI_Comm comm )
     {
         if ( !enabled_ )
         {
@@ -277,13 +279,12 @@ class SolidificationData
         if ( mpi_rank_ == 0 )
         {
             std::error_code ec;
-            std::filesystem::create_directories( sampling_inputs.directory_name,
-                                                 ec );
+            std::filesystem::create_directories( input_.directory, ec );
             if ( ec )
             {
                 std::cerr << "Cannot create solidification directory "
-                          << sampling_inputs.directory_name << ": "
-                          << ec.message() << std::endl;
+                          << input_.directory << ": " << ec.message()
+                          << std::endl;
                 directory_error = 1;
             }
         }
@@ -294,7 +295,7 @@ class SolidificationData
         MPI_Barrier( comm );
 
         std::ofstream fout;
-        std::string filename( sampling_inputs.directory_name + "/data_" +
+        std::string filename( input_.directory + "/data_" +
                               std::to_string( mpi_rank_ ) + ".csv" );
 
         fout.open( filename );
@@ -313,7 +314,7 @@ class SolidificationData
                  << events_host( n, 2 ) << "," << events_host( n, 3 ) << ","
                  << events_host( n, 4 ) << "," << events_host( n, 5 );
 
-            if ( sampling_inputs.format == "default" )
+            if ( input_.format == "default" )
             {
                 fout << "," << events_host( n, 6 ) << "," << events_host( n, 7 )
                      << "," << events_host( n, 8 );

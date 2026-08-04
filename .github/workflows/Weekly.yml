@@ -64,5 +64,5 @@ jobs:
       - name: Test Finch
         working-directory: examples/single_line
         run: |
-          $HOME/finch/bin/finch -i inputs_small.json
-          mpirun -n 2 --oversubscribe $HOME/finch/bin/finch -i inputs_small.json
+          $HOME/finch/bin/finch -i inputs_gaussian.json
+          mpirun -n 2 --oversubscribe $HOME/finch/bin/finch -i inputs_gaussian.json

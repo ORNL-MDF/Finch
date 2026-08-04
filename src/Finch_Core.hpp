@@ -13,8 +13,13 @@
 #define Finch_Core_H
 
 #include "Finch_Boundary.hpp"
+#include "Finch_FieldOutput.hpp"
 #include "Finch_Grid.hpp"
+#include "Finch_HeatSource.hpp"
 #include "Finch_Inputs.hpp"
+#include "Finch_Isotherm.hpp"
+#include "Finch_Material.hpp"
+#include "Finch_MeltPoolDimensions.hpp"
 #include "Finch_Run.hpp"
 #include "Finch_SolidificationData.hpp"
 #include "Finch_Solver.hpp"

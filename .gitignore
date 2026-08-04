@@ -7,10 +7,12 @@
 build
 kokkos/
 Cabana/
+__pycache__/
+/examples/**/output/
 
 # Output files
 *.bov
+*.bp/
 *.dat
 *.csv
-!performance-study/*.csv
 path*.txt

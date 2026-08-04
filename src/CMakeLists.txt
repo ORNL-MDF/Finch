@@ -6,7 +6,10 @@ file(GLOB CORE_SOURCE *.cpp MovingBeam/*.cpp)
 add_library(Core ${CORE_SOURCE})
 add_library(Finch::Core ALIAS Core)
 
-target_link_libraries(Core Cabana::Grid nlohmann_json::nlohmann_json)
+target_link_libraries(Core PUBLIC Cabana::Grid nlohmann_json::nlohmann_json)
+if(Finch_ENABLE_ADIOS2)
+  target_link_libraries(Core PUBLIC adios2::cxx_mpi)
+endif()
 target_compile_features(Core PUBLIC cxx_std_17)
 
 target_include_directories(Core PUBLIC

@@ -20,6 +20,8 @@
 #include <Cabana_Grid.hpp>
 #include <Kokkos_Core.hpp>
 
+#include <Finch_Scalar.hpp>
+
 namespace Finch
 {
 
@@ -30,9 +32,49 @@ struct DeviceTag
 {
 };
 
+// The material and source inputs the solver treats as differentiable. Held in
+// its own struct, templated on the scalar type, so a caller can hand the solver
+// values of a type other than double (see makeProperties below). Quantities the
+// solver only ever compares against -- solidus and liquidus -- stay double:
+// they select a branch rather than entering the arithmetic.
+template <typename Scalar>
+struct MaterialProperties
+{
+    Scalar density;
+    Scalar specific_heat;
+    Scalar thermal_conductivity;
+    Scalar latent_heat;
+    Scalar absorption;
+    Scalar two_sigma[3];
+};
+
+// Build the properties for a plain double solve directly from the input deck.
+// Scalar defaults to double, so existing callers get exactly the previous
+// behavior; callers wanting another scalar type request it explicitly and then
+// overwrite the members they care about.
+template <typename Scalar = double>
+MaterialProperties<Scalar> makeProperties( const Inputs& db )
+{
+    MaterialProperties<Scalar> props;
+    props.density = db.properties.density;
+    props.specific_heat = db.properties.specific_heat;
+    props.thermal_conductivity = db.properties.thermal_conductivity;
+    props.latent_heat = db.properties.latent_heat;
+    props.absorption = db.source.absorption;
+    for ( std::size_t d = 0; d < 3; ++d )
+        props.two_sigma[d] = db.source.two_sigma[d];
+    return props;
+}
+
 template <typename ViewType, typename EntityType, typename LocalMeshType>
 class Solver
 {
+  public:
+    // The field scalar type is whatever the temperature view holds. No extra
+    // template parameter is needed: making the Cabana array carry a different
+    // value type is enough to change the arithmetic throughout the solver.
+    using scalar_type = typename ViewType::non_const_value_type;
+
   protected:
     // temperature views are default constructed and updated every step.
     ViewType T_;
@@ -44,28 +86,34 @@ class Solver
     double dt_;
     double solidus_;
     double liquidus_;
-    double rho_cp_;
-    double rho_Lf_by_dT_;
-    double k_by_dx2_;
+    scalar_type rho_cp_;
+    scalar_type rho_Lf_by_dT_;
+    scalar_type k_by_dx2_;
 
     // heat source parameters
     double power_;
     double position_[3];
-    double r_[3];
-    double A_inv_[3];
-    double I0_;
+    scalar_type r_[3];
+    scalar_type A_inv_[3];
+    scalar_type I0_;
     double w_max_;
 
   public:
     Solver( Inputs db, LocalMeshType local_mesh )
+        : Solver( db, local_mesh, makeProperties<scalar_type>( db ) )
+    {
+    }
+
+    Solver( Inputs db, LocalMeshType local_mesh,
+            const MaterialProperties<scalar_type>& props )
         : local_mesh_( local_mesh )
         , power_( 0.0 )
     {
         // solution parameter constants
         double dx = db.space.cell_size;
-        double rho = db.properties.density;
-        double cp = db.properties.specific_heat;
-        double Lf = db.properties.latent_heat;
+        scalar_type rho = props.density;
+        scalar_type cp = props.specific_heat;
+        scalar_type Lf = props.latent_heat;
 
         dt_ = db.time.time_step;
 
@@ -77,7 +125,7 @@ class Solver
 
         rho_Lf_by_dT_ = rho * Lf / ( liquidus_ - solidus_ );
 
-        k_by_dx2_ = ( db.properties.thermal_conductivity ) / ( dx * dx );
+        k_by_dx2_ = ( props.thermal_conductivity ) / ( dx * dx );
 
         // initialize beam position
         for ( std::size_t d = 0; d < 3; ++d )
@@ -88,11 +136,11 @@ class Solver
         // heat source parameter constants
         for ( std::size_t d = 0; d < 3; ++d )
         {
-            r_[d] = db.source.two_sigma[d] / Kokkos::sqrt( 2.0 );
+            r_[d] = props.two_sigma[d] / Kokkos::sqrt( 2.0 );
             A_inv_[d] = 1.0 / r_[d] / r_[d];
         }
 
-        I0_ = ( 2.0 * db.source.absorption ) /
+        I0_ = ( 2.0 * props.absorption ) /
               ( M_PI * Kokkos::sqrt( M_PI ) * r_[0] * r_[1] * r_[2] );
 
         // cut off for 3 standard deviations from heat source center
@@ -136,13 +184,13 @@ class Solver
     KOKKOS_INLINE_FUNCTION
     void operator()( HostTag tag, const int i, const int j, const int k ) const
     {
-        double x = T0_( i, j, k, 0 );
+        scalar_type x = T0_( i, j, k, 0 );
 
-        double dt_by_rho_cp = ( x >= solidus_ && x <= liquidus_ )
-                                  ? dt_ / ( rho_cp_ + rho_Lf_by_dT_ )
-                                  : dt_ / ( rho_cp_ );
+        scalar_type dt_by_rho_cp = ( x >= solidus_ && x <= liquidus_ )
+                                       ? dt_ / ( rho_cp_ + rho_Lf_by_dT_ )
+                                       : dt_ / ( rho_cp_ );
 
-        double rhs = laplacian( i, j, k ) + source( tag, i, j, k );
+        scalar_type rhs = laplacian( i, j, k ) + source( tag, i, j, k );
 
         T_( i, j, k, 0 ) = x + rhs * dt_by_rho_cp;
     }
@@ -152,13 +200,13 @@ class Solver
     void operator()( DeviceTag tag, const int i, const int j,
                      const int k ) const
     {
-        double x = T0_( i, j, k, 0 );
+        scalar_type x = T0_( i, j, k, 0 );
 
-        double dt_by_rho_cp =
+        scalar_type dt_by_rho_cp =
             dt_ / ( rho_cp_ +
                     ( x >= solidus_ ) * ( x <= liquidus_ ) * rho_Lf_by_dT_ );
 
-        double rhs = laplacian( i, j, k ) + source( tag, i, j, k );
+        scalar_type rhs = laplacian( i, j, k ) + source( tag, i, j, k );
 
         T_( i, j, k, 0 ) = x + rhs * dt_by_rho_cp;
     }
@@ -176,8 +224,11 @@ class Solver
 
     // Normalized weight for the gaussian source term: x in exp(-x)
     KOKKOS_INLINE_FUNCTION
-    auto weight( const int i, const int j, const int k ) const
+    scalar_type weight( const int i, const int j, const int k ) const
     {
+        // Mesh coordinates and beam position are geometry, not field values,
+        // and stay double whatever the field scalar type is. Only the
+        // accumulation below picks up the scalar type, through A_inv_.
         double grid_loc[3];
         double dist_to_beam[3];
         int idx[3] = { i, j, k };
@@ -195,47 +246,64 @@ class Solver
 
     // Heating source term, device overload.
     KOKKOS_INLINE_FUNCTION
-    auto source( DeviceTag, const int i, const int j, const int k ) const
+    scalar_type source( DeviceTag, const int i, const int j, const int k ) const
     {
-        return I0_ * power_ * Kokkos::exp( -weight( i, j, k ) );
+        return I0_ * power_ * Math::exp( -weight( i, j, k ) );
     }
 
     // Heating source term, host overload.
     KOKKOS_INLINE_FUNCTION
-    auto source( HostTag, const int i, const int j, const int k ) const
+    scalar_type source( HostTag, const int i, const int j, const int k ) const
     {
         // performance improvements on host: scoping the exponential
         if ( power_ )
         {
-            double w = weight( i, j, k );
+            scalar_type w = weight( i, j, k );
 
             if ( w < w_max_ )
             {
-                return I0_ * power_ * Kokkos::exp( -w );
+                return I0_ * power_ * Math::exp( -w );
             }
             else
             {
-                return 0.0;
+                return scalar_type( 0 );
             }
         }
         else
         {
-            return 0.0;
+            return scalar_type( 0 );
         }
     }
 };
 
 // Create a solver based on the grid details and simulation inputs.
-template <typename MemorySpace>
-auto createSolver( Inputs db, Grid<MemorySpace> grid )
+template <typename MemorySpace, typename Scalar>
+auto createSolver( Inputs db, Grid<MemorySpace, Scalar> grid )
 {
-    using entity_type = typename Grid<MemorySpace>::entity_type;
-    using view_type = typename Grid<MemorySpace>::view_type;
-    using mesh_type = typename Grid<MemorySpace>::local_mesh_type;
+    using grid_type = Grid<MemorySpace, Scalar>;
+    using entity_type = typename grid_type::entity_type;
+    using view_type = typename grid_type::view_type;
+    using mesh_type = typename grid_type::local_mesh_type;
 
     auto local_mesh = grid.getLocalMesh();
 
     return Solver<view_type, entity_type, mesh_type>( db, local_mesh );
+}
+
+// Create a solver with explicitly supplied material properties. Used when the
+// properties carry more than a value -- for example seeded AD variables.
+template <typename MemorySpace, typename Scalar>
+auto createSolver( Inputs db, Grid<MemorySpace, Scalar> grid,
+                   const MaterialProperties<Scalar>& props )
+{
+    using grid_type = Grid<MemorySpace, Scalar>;
+    using entity_type = typename grid_type::entity_type;
+    using view_type = typename grid_type::view_type;
+    using mesh_type = typename grid_type::local_mesh_type;
+
+    auto local_mesh = grid.getLocalMesh();
+
+    return Solver<view_type, entity_type, mesh_type>( db, local_mesh, props );
 }
 
 } // namespace Finch

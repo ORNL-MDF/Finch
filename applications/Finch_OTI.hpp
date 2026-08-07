@@ -24,7 +24,7 @@ namespace Finch
 namespace Math
 {
 
-// Tell Finch which component of an OTI jet is its numeric value. This is all
+// Tell Finch which component of an OTI number is its numeric value. This is all
 // the core library needs to know about the type; every other operation it
 // performs (arithmetic, comparison, exp, fmin/fmax) is resolved by ADL into
 // namespace oti.

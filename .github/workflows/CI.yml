@@ -79,6 +79,11 @@ jobs:
           repository: ECP-CoPA/Cabana
           ref: 0.6.1
           path: cabana
+      - name: Checkout Sparrow
+        uses: actions/checkout@v3
+        with:
+          repository: ORNL-MDF/Sparrow
+          path: sparrow
       - name: Build Cabana
         working-directory: cabana
         run: |
@@ -96,6 +101,7 @@ jobs:
           cmake -B build \
             -D CMAKE_INSTALL_PREFIX=$HOME/finch \
             -D CMAKE_PREFIX_PATH="$HOME/cabana;$HOME/json" \
+            -D SPARROW_DIR=$GITHUB_WORKSPACE/sparrow/include \
             -D CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
             -D CMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -D CMAKE_CXX_FLAGS="-Wall -Wextra -pedantic -Werror" \
@@ -151,6 +157,11 @@ jobs:
           repository: ECP-CoPA/Cabana
           ref: 0.6.1
           path: cabana
+      - name: Checkout Sparrow
+        uses: actions/checkout@v3
+        with:
+          repository: ORNL-MDF/Sparrow
+          path: sparrow
       - name: Build Cabana
         working-directory: cabana
         run: |
@@ -168,6 +179,7 @@ jobs:
           cmake -B build \
             -D CMAKE_INSTALL_PREFIX=$HOME/finch \
             -D CMAKE_PREFIX_PATH="$HOME/cabana;$HOME/json" \
+            -D SPARROW_DIR=$GITHUB_WORKSPACE/sparrow/include \
             -D CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
             -D CMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -D CMAKE_CXX_FLAGS="-Wall -Wextra -pedantic -Werror -I${MPI_LOCATION}/include" \
@@ -211,6 +223,11 @@ jobs:
           repository: ECP-CoPA/Cabana
           ref: 0.6.1
           path: cabana
+      - name: Checkout Sparrow
+        uses: actions/checkout@v3
+        with:
+          repository: ORNL-MDF/Sparrow
+          path: sparrow
       - name: Build Cabana
         working-directory: cabana
         run: |
@@ -228,6 +245,7 @@ jobs:
           cmake -B build \
             -D CMAKE_INSTALL_PREFIX=$HOME/finch \
             -D CMAKE_PREFIX_PATH="$HOME/cabana;$HOME/json" \
+            -D SPARROW_DIR=$GITHUB_WORKSPACE/sparrow/include \
             -D CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
             -D CMAKE_CXX_FLAGS="-Wall -Wextra -pedantic -Werror"
           cmake --build build --parallel 2

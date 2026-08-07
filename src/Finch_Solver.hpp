@@ -34,11 +34,11 @@ struct DeviceTag
 
 // The material and source inputs the solver treats as differentiable. Held in
 // its own struct, templated on the scalar type, so a caller can hand the solver
-// values of a type other than double (see makeProperties below). Quantities the
-// solver only ever compares against -- solidus and liquidus -- stay double:
-// they select a branch rather than entering the arithmetic.
+// values of a type other than double (see makeSolverParameters below).
+// Quantities the solver only ever compares against -- solidus and liquidus --
+// stay double: they select a branch rather than entering the arithmetic.
 template <typename Scalar>
-struct MaterialProperties
+struct SolverParameters
 {
     Scalar density;
     Scalar specific_heat;
@@ -48,22 +48,22 @@ struct MaterialProperties
     Scalar two_sigma[3];
 };
 
-// Build the properties for a plain double solve directly from the input deck.
+// Build the parameters for a plain double solve directly from the input deck.
 // Scalar defaults to double, so existing callers get exactly the previous
 // behavior; callers wanting another scalar type request it explicitly and then
 // overwrite the members they care about.
 template <typename Scalar = double>
-MaterialProperties<Scalar> makeProperties( const Inputs& db )
+SolverParameters<Scalar> makeSolverParameters( const Inputs& db )
 {
-    MaterialProperties<Scalar> props;
-    props.density = db.properties.density;
-    props.specific_heat = db.properties.specific_heat;
-    props.thermal_conductivity = db.properties.thermal_conductivity;
-    props.latent_heat = db.properties.latent_heat;
-    props.absorption = db.source.absorption;
+    SolverParameters<Scalar> params;
+    params.density = db.properties.density;
+    params.specific_heat = db.properties.specific_heat;
+    params.thermal_conductivity = db.properties.thermal_conductivity;
+    params.latent_heat = db.properties.latent_heat;
+    params.absorption = db.source.absorption;
     for ( std::size_t d = 0; d < 3; ++d )
-        props.two_sigma[d] = db.source.two_sigma[d];
-    return props;
+        params.two_sigma[d] = db.source.two_sigma[d];
+    return params;
 }
 
 template <typename ViewType, typename EntityType, typename LocalMeshType>
@@ -100,20 +100,20 @@ class Solver
 
   public:
     Solver( Inputs db, LocalMeshType local_mesh )
-        : Solver( db, local_mesh, makeProperties<scalar_type>( db ) )
+        : Solver( db, local_mesh, makeSolverParameters<scalar_type>( db ) )
     {
     }
 
     Solver( Inputs db, LocalMeshType local_mesh,
-            const MaterialProperties<scalar_type>& props )
+            const SolverParameters<scalar_type>& params )
         : local_mesh_( local_mesh )
         , power_( 0.0 )
     {
         // solution parameter constants
         double dx = db.space.cell_size;
-        scalar_type rho = props.density;
-        scalar_type cp = props.specific_heat;
-        scalar_type Lf = props.latent_heat;
+        scalar_type rho = params.density;
+        scalar_type cp = params.specific_heat;
+        scalar_type Lf = params.latent_heat;
 
         dt_ = db.time.time_step;
 
@@ -125,7 +125,7 @@ class Solver
 
         rho_Lf_by_dT_ = rho * Lf / ( liquidus_ - solidus_ );
 
-        k_by_dx2_ = ( props.thermal_conductivity ) / ( dx * dx );
+        k_by_dx2_ = ( params.thermal_conductivity ) / ( dx * dx );
 
         // initialize beam position
         for ( std::size_t d = 0; d < 3; ++d )
@@ -136,11 +136,11 @@ class Solver
         // heat source parameter constants
         for ( std::size_t d = 0; d < 3; ++d )
         {
-            r_[d] = props.two_sigma[d] / Kokkos::sqrt( 2.0 );
+            r_[d] = params.two_sigma[d] / Kokkos::sqrt( 2.0 );
             A_inv_[d] = 1.0 / r_[d] / r_[d];
         }
 
-        I0_ = ( 2.0 * props.absorption ) /
+        I0_ = ( 2.0 * params.absorption ) /
               ( M_PI * Kokkos::sqrt( M_PI ) * r_[0] * r_[1] * r_[2] );
 
         // cut off for 3 standard deviations from heat source center
@@ -290,11 +290,12 @@ auto createSolver( Inputs db, Grid<MemorySpace, Scalar> grid )
     return Solver<view_type, entity_type, mesh_type>( db, local_mesh );
 }
 
-// Create a solver with explicitly supplied material properties. Used when the
-// properties carry more than a value -- for example seeded AD variables.
+// Create a solver with explicitly supplied material and source parameters.
+// Used when the parameters carry more than a value -- for example seeded AD
+// variables.
 template <typename MemorySpace, typename Scalar>
 auto createSolver( Inputs db, Grid<MemorySpace, Scalar> grid,
-                   const MaterialProperties<Scalar>& props )
+                   const SolverParameters<Scalar>& params )
 {
     using grid_type = Grid<MemorySpace, Scalar>;
     using entity_type = typename grid_type::entity_type;
@@ -303,7 +304,7 @@ auto createSolver( Inputs db, Grid<MemorySpace, Scalar> grid,
 
     auto local_mesh = grid.getLocalMesh();
 
-    return Solver<view_type, entity_type, mesh_type>( db, local_mesh, props );
+    return Solver<view_type, entity_type, mesh_type>( db, local_mesh, params );
 }
 
 } // namespace Finch

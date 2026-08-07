@@ -33,9 +33,9 @@ namespace Finch
     if ( comm_rank == 0 )                                                      \
     std::cout
 
-// Scalar is the type stored in the temperature field. It defaults to double,
-// which reproduces the original behavior exactly; supplying another arithmetic
-// type propagates it through the field, the halo, and the solver arithmetic.
+// Scalar is the type stored in the temperature field. It defaults to double;
+// supplying another arithmetic type propagates it through the field, the halo,
+// and the solver arithmetic.
 // Note that the *mesh* stays double: cell size and node coordinates are
 // geometry, and are not carried by the field scalar type.
 template <typename MemorySpace, typename Scalar = double>

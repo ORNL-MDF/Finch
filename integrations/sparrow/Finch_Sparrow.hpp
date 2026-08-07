@@ -1,14 +1,25 @@
 /****************************************************************************
- * OTI (order-truncated imaginary) scalar type glue for Finch.
- *
- * This header is the ONLY place where Finch and cpp_oti_lib meet. It lives in
- * applications/ rather than src/ on purpose: Finch's core carries no dependency
- * on any AD library, and the coupling is a single ScalarValue specialization
- * plus a parameter-seeding helper.
+ * Copyright (c) 2024 by Oak Ridge National Laboratory                      *
+ * All rights reserved.                                                     *
+ *                                                                          *
+ * This file is part of Finch. Finch is distributed under a                 *
+ * BSD 3-clause license. For the licensing terms see the LICENSE file in    *
+ * the top-level directory.                                                 *
+ *                                                                          *
+ * SPDX-License-Identifier: BSD-3-Clause                                    *
  ****************************************************************************/
 
-#ifndef Finch_OTI_H
-#define Finch_OTI_H
+/****************************************************************************
+ * Sparrow OTI (order-truncated imaginary) scalar type glue for Finch.
+ *
+ * This header is the ONLY place where Finch and Sparrow meet. It lives in
+ * integrations/sparrow rather than Finch's core or an application: the core
+ * carries no dependency on any AD library, and the coupling is a single
+ * ScalarValue specialization plus a parameter-seeding helper.
+ ****************************************************************************/
+
+#ifndef Finch_Sparrow_H
+#define Finch_Sparrow_H
 
 #include <Finch_Scalar.hpp>
 #include <Finch_Solver.hpp>
@@ -24,17 +35,19 @@ namespace Finch
 namespace Math
 {
 
-// Tell Finch which component of an OTI jet is its numeric value. This is all
+// Tell Finch which component of an OTI number is its numeric value. This is all
 // the core library needs to know about the type; every other operation it
 // performs (arithmetic, comparison, exp, fmin/fmax) is resolved by ADL into
 // namespace oti.
 template <int M, int N, class Coeff>
 struct ScalarValue<oti::otinum<M, N, Coeff>>
 {
-    KOKKOS_INLINE_FUNCTION static double
+    using value_type = Coeff;
+
+    KOKKOS_INLINE_FUNCTION static value_type
     value( const oti::otinum<M, N, Coeff>& x )
     {
-        return static_cast<double>( x.real() );
+        return x.real();
     }
 };
 
@@ -77,7 +90,8 @@ inline const char* name( int p )
     case TwoSigma:
         return "two_sigma";
     default:
-        return "unknown";
+        throw std::out_of_range(
+            "Sensitivity parameter index is out of range" );
     }
 }
 
@@ -98,7 +112,8 @@ inline const char* units( int p )
     case TwoSigma:
         return "m";
     default:
-        return "";
+        throw std::out_of_range(
+            "Sensitivity parameter index is out of range" );
     }
 }
 
@@ -128,18 +143,17 @@ inline std::array<double, NumParameters> nominal( const Inputs& db )
 // (values seeded as independent variables), so that both paths perturb exactly
 // the same quantities.
 template <class Scalar>
-MaterialProperties<Scalar>
-build( const std::array<Scalar, NumParameters>& p )
+SolverParameters<Scalar> build( const std::array<Scalar, NumParameters>& p )
 {
-    MaterialProperties<Scalar> props;
-    props.density = p[Density];
-    props.specific_heat = p[SpecificHeat];
-    props.thermal_conductivity = p[ThermalConductivity];
-    props.latent_heat = p[LatentHeat];
-    props.absorption = p[Absorption];
+    SolverParameters<Scalar> params;
+    params.density = p[Density];
+    params.specific_heat = p[SpecificHeat];
+    params.thermal_conductivity = p[ThermalConductivity];
+    params.latent_heat = p[LatentHeat];
+    params.absorption = p[Absorption];
     for ( int d = 0; d < 3; ++d )
-        props.two_sigma[d] = p[TwoSigma];
-    return props;
+        params.two_sigma[d] = p[TwoSigma];
+    return params;
 }
 
 // Seed every parameter as an independent OTI variable at its nominal value.

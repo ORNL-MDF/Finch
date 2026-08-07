@@ -17,3 +17,4 @@ path*.txt
 # Spike artifacts
 build-baseline/
 spike_runs/
+OTI_INTEGRATION_NOTES.md

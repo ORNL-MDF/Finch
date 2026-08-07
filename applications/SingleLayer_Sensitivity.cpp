@@ -1,5 +1,17 @@
 /****************************************************************************
- * Parameter sensitivity of the Finch heat solve, by forward-mode AD.
+ * Copyright (c) 2024 by Oak Ridge National Laboratory                      *
+ * All rights reserved.                                                     *
+ *                                                                          *
+ * This file is part of Finch. Finch is distributed under a                 *
+ * BSD 3-clause license. For the licensing terms see the LICENSE file in    *
+ * the top-level directory.                                                 *
+ *                                                                          *
+ * SPDX-License-Identifier: BSD-3-Clause                                    *
+ ****************************************************************************/
+
+/****************************************************************************
+ * Parameter sensitivity of the Finch single-layer heat solve, by forward-mode
+ * AD.
  *
  * Runs the single-layer heat transport problem once with OTI-valued material
  * and source parameters, obtaining d(QoI)/dp for every parameter from that one
@@ -12,6 +24,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include <mpi.h>
@@ -19,17 +32,30 @@
 #include <Kokkos_Core.hpp>
 
 #include "Finch_Core.hpp"
-#include "Finch_OTI.hpp"
+#include "Finch_Sparrow.hpp"
 
 namespace
 {
 
 constexpr int NP = Finch::Sensitivity::NumParameters;
 
-// First-order jets: one variable per differentiated parameter, derivatives
-// through order one. Raising the order to 2 here is the only change needed to
-// obtain the full parameter Hessian of the same quantities.
+// First-order OTI numbers: one variable per differentiated parameter. This
+// application computes and reports gradients only; second derivatives are not
+// evaluated.
 using OTI = oti::otinum<NP, 1>;
+
+template <class T>
+MPI_Datatype mpi_datatype()
+{
+    static_assert( std::is_same<T, float>::value ||
+                       std::is_same<T, double>::value,
+                   "Sensitivity MPI reductions support float and double "
+                   "coefficients" );
+    if constexpr ( std::is_same<T, float>::value )
+        return MPI_FLOAT;
+    else
+        return MPI_DOUBLE;
+}
 
 // Quantities of interest evaluated on the final temperature field. Both are
 // smooth functionals of the field, which makes them meaningful finite-
@@ -46,7 +72,7 @@ struct QoI
 // Run the transient solve to completion and evaluate the QoIs.
 template <class Scalar, class MemorySpace, class ExecSpace>
 QoI<Scalar> solve( MPI_Comm comm, Finch::Inputs db,
-                   const Finch::MaterialProperties<Scalar>& props )
+                   const Finch::SolverParameters<Scalar>& params )
 {
     std::array<std::string, 6> bc_types = { "adiabatic", "adiabatic",
                                             "adiabatic", "adiabatic",
@@ -57,7 +83,7 @@ QoI<Scalar> solve( MPI_Comm comm, Finch::Inputs db,
         db.space.global_high_corner, db.space.ranks_per_dim, bc_types,
         db.space.initial_temperature );
 
-    auto fd = Finch::createSolver( db, grid, props );
+    auto fd = Finch::createSolver( db, grid, params );
 
     Finch::MovingBeam beam( db.source.scan_path_file );
 
@@ -88,29 +114,37 @@ QoI<Scalar> solve( MPI_Comm comm, Finch::Inputs db,
         grid.gather();
     }
 
-    // Evaluate the QoIs on the host. Copying the field to a host mirror keeps
-    // this independent of Kokkos reducer support for compound scalar types,
-    // which is not needed for a once-per-run diagnostic.
+    // Evaluate the sum on the active Kokkos backend. For the OTI solve this
+    // deliberately reduces a compound Sparrow scalar, exercising its device
+    // annotations, additive identity, and operator+= integration with Kokkos.
     auto T = grid.getTemperature();
-    auto T_host = Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), T );
-
     auto owned = grid.getIndexSpace();
 
     QoI<Scalar> q;
     q.sum = Scalar( 0 );
-    for ( int i = owned.min( 0 ); i < owned.max( 0 ); ++i )
-        for ( int j = owned.min( 1 ); j < owned.max( 1 ); ++j )
-            for ( int k = owned.min( 2 ); k < owned.max( 2 ); ++k )
-                q.sum = q.sum + T_host( i, j, k, 0 );
+    Cabana::Grid::grid_parallel_reduce(
+        "sensitivity_temperature_sum", ExecSpace(), owned,
+        KOKKOS_LAMBDA( const int i, const int j, const int k,
+                       Scalar& local_sum ) {
+            local_sum += T( i, j, k, 0 );
+        },
+        q.sum );
 
-    q.probe = T_host( ( owned.min( 0 ) + owned.max( 0 ) ) / 2,
-                      ( owned.min( 1 ) + owned.max( 1 ) ) / 2,
-                      ( owned.min( 2 ) + owned.max( 2 ) ) / 2, 0 );
+    // Copy only the single probe value to the host rather than mirroring the
+    // complete field. A rank-zero view keeps this path valid for device-only
+    // memory spaces.
+    const int probe_i = ( owned.min( 0 ) + owned.max( 0 ) ) / 2;
+    const int probe_j = ( owned.min( 1 ) + owned.max( 1 ) ) / 2;
+    const int probe_k = ( owned.min( 2 ) + owned.max( 2 ) ) / 2;
+    auto probe_device = Kokkos::subview( T, probe_i, probe_j, probe_k, 0 );
+    auto probe_host = Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(),
+                                                           probe_device );
+    q.probe = probe_host();
 
-    // Reduce the sum across ranks. An OTI jet is a contiguous block of
-    // coefficients, and summing jets is summing coefficients elementwise, so a
-    // plain MPI_DOUBLE reduction over ncoeffs entries is exact -- no derived
-    // datatype or user-defined operator is required.
+    // Reduce the sum across ranks. An OTI number is a contiguous block of
+    // coefficients, and summing OTI numbers is summing coefficients
+    // elementwise, so a plain MPI reduction over ncoeffs coefficient values is
+    // exact -- no derived datatype or user-defined operator is required.
     int comm_size;
     MPI_Comm_size( comm, &comm_size );
     if ( comm_size > 1 )
@@ -122,9 +156,10 @@ QoI<Scalar> solve( MPI_Comm comm, Finch::Inputs db,
         }
         else
         {
+            using coeff_type = typename Scalar::coeff_type;
             Scalar local = q.sum;
-            MPI_Allreduce( &local[0], &q.sum[0], Scalar::ncoeffs, MPI_DOUBLE,
-                           MPI_SUM, comm );
+            MPI_Allreduce( &local[0], &q.sum[0], Scalar::ncoeffs,
+                           mpi_datatype<coeff_type>(), MPI_SUM, comm );
         }
     }
 
@@ -227,7 +262,8 @@ void run( MPI_Comm comm, int argc, char* argv[] )
 
     for ( int q = 0; q < 2; ++q )
     {
-        const OTI& jet = ( q == 0 ) ? oti_result.sum : oti_result.probe;
+        const OTI& oti_number =
+            ( q == 0 ) ? oti_result.sum : oti_result.probe;
         const std::array<double, NP>& fd = ( q == 0 ) ? fd_sum : fd_probe;
 
         std::printf( "  d(%s)/dp\n", qoi_name[q] );
@@ -246,14 +282,15 @@ void run( MPI_Comm comm, int argc, char* argv[] )
         {
             typename OTI::alpha_type alpha{};
             alpha[i] = 1;
-            ref = std::max( ref, std::fabs( nominal[i] * jet.partial( alpha ) ) );
+            ref = std::max(
+                ref, std::fabs( nominal[i] * oti_number.partial( alpha ) ) );
         }
 
         for ( int i = 0; i < NP; ++i )
         {
             typename OTI::alpha_type alpha{};
             alpha[i] = 1;
-            double d_oti = jet.partial( alpha );
+            double d_oti = oti_number.partial( alpha );
 
             double scale = std::max( std::fabs( d_oti ), std::fabs( fd[i] ) );
             bool negligible =

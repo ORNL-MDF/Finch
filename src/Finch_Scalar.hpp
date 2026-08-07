@@ -36,9 +36,9 @@ namespace Math
 //
 // For any other type the call is made unqualified so that argument-dependent
 // lookup finds an overload in the scalar type's own namespace. That is the
-// extension point: a user-defined arithmetic type (a dual number, an interval,
-// a truncated-Taylor AD jet) supplies its own exp/fmin/fmax and needs no edit
-// here. Finch therefore carries no dependency on any particular AD library.
+// extension point: a user-defined scalar type supplies its own exp/fmin/fmax
+// and needs no edit here. Finch therefore carries no dependency on any
+// particular AD library.
 
 template <class T>
 KOKKOS_INLINE_FUNCTION auto exp( const T& x )
@@ -82,9 +82,11 @@ KOKKOS_INLINE_FUNCTION auto fmax( const T& a, const T& b )
     }
 }
 
-// Numeric value of a scalar, used where a plain double is required regardless
-// of the field type: file output, MPI reductions over bounds, and the
-// solidification event records that are handed to downstream tools.
+// Numeric value of a scalar. The trait exposes the underlying arithmetic type
+// so an AD scalar backed by float remains float and one backed by double remains
+// double. Call sites whose storage format requires double (file output and the
+// solidification event records handed to downstream tools) convert at that
+// boundary rather than forcing every scalar integration to double here.
 //
 // The primary template covers built-in types. A non-arithmetic scalar type
 // specializes this to say which of its components is the "value" -- for a
@@ -92,14 +94,16 @@ KOKKOS_INLINE_FUNCTION auto fmax( const T& a, const T& b )
 template <class T, class Enable = void>
 struct ScalarValue
 {
-    KOKKOS_INLINE_FUNCTION static double value( const T& x )
-    {
-        return static_cast<double>( x );
-    }
+    using value_type = T;
+
+    KOKKOS_INLINE_FUNCTION static value_type value( const T& x ) { return x; }
 };
 
 template <class T>
-KOKKOS_INLINE_FUNCTION double value( const T& x )
+using scalar_value_t = typename ScalarValue<T>::value_type;
+
+template <class T>
+KOKKOS_INLINE_FUNCTION scalar_value_t<T> value( const T& x )
 {
     return ScalarValue<T>::value( x );
 }

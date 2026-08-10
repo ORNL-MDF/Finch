@@ -24,15 +24,16 @@
 namespace Finch
 {
 
-template <typename MemorySpace>
+template <typename MemorySpace, typename Scalar = double>
 class Layer
 {
   public:
     using memory_space = MemorySpace;
-    using sampling_type = Finch::SolidificationData<memory_space>;
+    using scalar_type = Scalar;
+    using sampling_type = Finch::SolidificationData<memory_space, Scalar>;
     sampling_type solidification_data_;
 
-    Layer( Inputs& inputs, Grid<MemorySpace>& grid )
+    Layer( Inputs& inputs, Grid<MemorySpace, Scalar>& grid )
     {
         // Only construct if turned on - will otherwise default and immediately
         // return from any member functions
@@ -43,7 +44,8 @@ class Layer
     // Run the full timestepped loop
     template <typename ExecutionSpace, typename SolverType>
     void run( ExecutionSpace exec_space, Inputs& inputs,
-              Grid<MemorySpace>& grid, MovingBeam& beam, SolverType& fd )
+              Grid<MemorySpace, Scalar>& grid, MovingBeam& beam,
+              SolverType& fd )
     {
         // time stepping
         double& time = inputs.time.time;
@@ -75,7 +77,8 @@ class Layer
     // Run a single timestep
     template <typename ExecutionSpace, typename SolverType>
     void step( ExecutionSpace exec_space, double& time, const double dt,
-               Grid<MemorySpace> grid, MovingBeam& beam, SolverType& fd )
+               Grid<MemorySpace, Scalar> grid, MovingBeam& beam,
+               SolverType& fd )
     {
         time += dt;
 

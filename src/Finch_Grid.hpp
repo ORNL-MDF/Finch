@@ -21,6 +21,9 @@
 #include <Kokkos_Core.hpp>
 
 #include <Finch_Boundary.hpp>
+#include <Finch_Scalar.hpp>
+
+#include <type_traits>
 
 namespace Finch
 {
@@ -30,12 +33,20 @@ namespace Finch
     if ( comm_rank == 0 )                                                      \
     std::cout
 
-template <typename MemorySpace>
+// Scalar is the type stored in the temperature field. It defaults to double;
+// supplying another arithmetic type propagates it through the field, the halo,
+// and the solver arithmetic.
+// Note that the *mesh* stays double: cell size and node coordinates are
+// geometry, and are not carried by the field scalar type.
+template <typename MemorySpace, typename Scalar = double>
 class Grid
 {
   public:
     // Kokkos memory space
     using memory_space = MemorySpace;
+
+    // Field scalar type
+    using scalar_type = Scalar;
 
     // Default Kokkos execution space for this memory space
     using exec_space = typename MemorySpace::execution_space;
@@ -46,7 +57,7 @@ class Grid
     using local_mesh_type = Cabana::Grid::LocalMesh<memory_space, mesh_type>;
 
     using array_type =
-        Cabana::Grid::Array<double, entity_type, mesh_type, memory_space>;
+        Cabana::Grid::Array<Scalar, entity_type, mesh_type, memory_space>;
     using view_type = typename array_type::view_type;
 
     int comm_rank, comm_size;
@@ -56,8 +67,8 @@ class Grid
           std::array<double, 3> global_low_corner,
           std::array<double, 3> global_high_corner,
           std::array<int, 3> ranks_per_dim, std::array<std::string, 6> bc_types,
-          Kokkos::Array<double, 6> bc_values, const double initial_temperature )
-        : boundary( Boundary( bc_types, bc_values ) )
+          Kokkos::Array<Scalar, 6> bc_values, const double initial_temperature )
+        : boundary( Boundary<Scalar>( bc_types, bc_values ) )
     {
         initialize( comm, cell_size, global_low_corner, global_high_corner,
                     ranks_per_dim, initial_temperature );
@@ -76,7 +87,7 @@ class Grid
           std::array<double, 3> global_high_corner,
           std::array<int, 3> ranks_per_dim, std::array<std::string, 6> bc_types,
           const double initial_temperature )
-        : boundary( Boundary( bc_types ) )
+        : boundary( Boundary<Scalar>( bc_types ) )
     {
         initialize( comm, cell_size, global_low_corner, global_high_corner,
                     ranks_per_dim, initial_temperature );
@@ -127,13 +138,13 @@ class Grid
             createArrayLayout( global_grid, halo_width, 1, entity_type() );
 
         std::string name( "temperature" );
-        T = Cabana::Grid::createArray<double, memory_space>( name, layout );
-        Cabana::Grid::ArrayOp::assign( *T, initial_temperature,
+        T = Cabana::Grid::createArray<Scalar, memory_space>( name, layout );
+        Cabana::Grid::ArrayOp::assign( *T, Scalar( initial_temperature ),
                                        Cabana::Grid::Ghost() );
 
         // create an array to store previous temperature for explicit update
         // Note: this is an entirely separate array on purpose (no shallow copy)
-        T0 = Cabana::Grid::createArray<double, memory_space>( name, layout );
+        T0 = Cabana::Grid::createArray<Scalar, memory_space>( name, layout );
 
         // create halo
         halo = createHalo( Cabana::Grid::FaceHaloPattern<3>(), halo_width, *T );
@@ -158,7 +169,36 @@ class Grid
 
     void output( const int step, const double time )
     {
-        Cabana::Grid::Experimental::BovWriter::writeTimeStep( step, time, *T );
+        if constexpr ( std::is_same<Scalar, double>::value )
+        {
+            Cabana::Grid::Experimental::BovWriter::writeTimeStep( step, time,
+                                                                  *T );
+        }
+        else
+        {
+            // BovWriter requires a value type that has both an MpiTraits and a
+            // BovFormat specialization, so a compound scalar cannot be written
+            // directly. Project the field onto a plain double array -- its
+            // numeric value, as defined by Math::ScalarValue -- and write that.
+            // The extra components of the scalar (for an AD type, the
+            // derivatives) are deliberately not part of this file; they are
+            // reported separately by the application.
+            auto T_real = Cabana::Grid::createArray<double, memory_space>(
+                "temperature", T->layout() );
+            auto src = T->view();
+            auto dst = T_real->view();
+            Kokkos::parallel_for(
+                "project_field_value",
+                Kokkos::MDRangePolicy<exec_space, Kokkos::Rank<3>>(
+                    { 0, 0, 0 }, { static_cast<int>( src.extent( 0 ) ),
+                                   static_cast<int>( src.extent( 1 ) ),
+                                   static_cast<int>( src.extent( 2 ) ) } ),
+                KOKKOS_LAMBDA( const int i, const int j, const int k ) {
+                    dst( i, j, k, 0 ) = Math::value( src( i, j, k, 0 ) );
+                } );
+            Cabana::Grid::Experimental::BovWriter::writeTimeStep( step, time,
+                                                                  *T_real );
+        }
     }
 
     void updateBoundaries()
@@ -189,7 +229,7 @@ class Grid
     std::shared_ptr<array_type> T0;
 
     //! Boundary conditions.
-    Boundary boundary;
+    Boundary<Scalar> boundary;
 };
 
 } // namespace Finch

@@ -16,4 +16,6 @@
 
 #define Finch_GIT_COMMIT_HASH "@Finch_GIT_COMMIT_HASH@"
 
+#cmakedefine Finch_ENABLE_STORK
+
 #endif

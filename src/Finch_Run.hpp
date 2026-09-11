@@ -31,13 +31,17 @@ class Layer
     using memory_space = MemorySpace;
     using sampling_type = Finch::SolidificationData<memory_space>;
     sampling_type solidification_data_;
+    bool srdf_format;
 
     Layer( Inputs& inputs, Grid<MemorySpace>& grid )
     {
         // Only construct if turned on - will otherwise default and immediately
         // return from any member functions
         if ( inputs.sampling.enabled )
-            solidification_data_ = sampling_type( inputs, grid );
+        {
+            srdf_format = inputs.sampling.format == "stork";
+            solidification_data_ = sampling_type( inputs, grid, srdf_format );
+        }
     }
 
     // Run the full timestepped loop
@@ -97,26 +101,33 @@ class Layer
         auto owned_space = grid.getIndexSpace();
         fd.solve( exec_space, owned_space, T, T0, beam_power, beam_pos );
 
-        // update boundaries
-        grid.updateBoundaries();
-
         // communicate halos
         grid.gather();
+        // update boundaries
+        grid.updateBoundaries();
 
         solidification_data_.update( grid, time );
     }
 
-    auto getSolidificationData() { return solidification_data_.get(); }
+    auto getSolidificationData( Grid<MemorySpace> grid, MPI_Comm comm,
+                                Sampling sampling_inputs, bool write_data )
+    {
+        return solidification_data_.get( grid, comm, sampling_inputs,
+                                         write_data );
+    }
+
     // Append next layer's solidification data to input_solidification_data
     void appendSolidificationData(
         Kokkos::View<double**, Kokkos::LayoutLeft, Kokkos::HostSpace>&
             input_solidification_data,
+        MPI_Comm comm, Grid<MemorySpace> grid, Sampling sampling_inputs,
         std::vector<int>& first_value_finch, std::vector<int>& last_value_finch,
         int finch_file_num, const int num_finch_simulations )
     {
         // Time-temperature history from the Finch simulation performed for this
         // layer
-        auto new_layer_data = solidification_data_.get();
+        auto new_layer_data =
+            solidification_data_.get( grid, comm, sampling_inputs, false );
         // Number of events and components in new layer time-temperature history
         const int events_this_layer = new_layer_data.extent( 0 );
         const int n_cmpts = new_layer_data.extent( 1 );
@@ -152,9 +163,10 @@ class Layer
             events_prev_layers + events_this_layer;
     }
 
-    auto writeSolidificationData( Sampling sampling_inputs, MPI_Comm comm )
+    auto writeSolidificationData( Grid<memory_space>& grid,
+                                  Sampling sampling_inputs, MPI_Comm comm )
     {
-        return solidification_data_.write( sampling_inputs, comm );
+        return solidification_data_.write( sampling_inputs, grid, comm );
     }
 
     [[deprecated( "Use of getLowerSolidificationDataBounds() without a "

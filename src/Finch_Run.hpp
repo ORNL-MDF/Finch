@@ -31,7 +31,6 @@ class Layer
     using memory_space = MemorySpace;
     using sampling_type = Finch::SolidificationData<memory_space>;
     sampling_type solidification_data_;
-    bool srdf_format;
 
     Layer( Inputs& inputs, Grid<MemorySpace>& grid )
     {
@@ -39,7 +38,7 @@ class Layer
         // return from any member functions
         if ( inputs.sampling.enabled )
         {
-            srdf_format = inputs.sampling.format == "stork";
+            bool srdf_format = inputs.sampling.format == "stork";
             solidification_data_ = sampling_type( inputs, grid, srdf_format );
         }
     }

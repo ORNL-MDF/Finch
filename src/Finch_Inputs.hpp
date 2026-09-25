@@ -520,7 +520,8 @@ class Inputs
             else
                 throw std::runtime_error(
                     "Error: Unknown sampling format: valid options are "
-                    "`exaca`, `default`, and `stork`" );
+                    "`exaca`, `default`, and `stork`. Current default is "
+                    "`exaca`" );
 
             if ( db["sampling"].contains( "directory_name" ) )
             {

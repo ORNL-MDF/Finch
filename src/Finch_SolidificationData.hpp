@@ -627,6 +627,7 @@ class SolidificationData
 
             fout << std::endl;
         }
+        fout.close();
 
         MPI_Barrier( comm );
         std::chrono::high_resolution_clock::time_point

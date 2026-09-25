@@ -49,7 +49,7 @@ void run( int argc, char* argv[] )
     app.run( exec_space(), db, grid, beam, fd );
 
     // Get the solidification data from the simulation and write to file
-    app.getSolidificationData( grid, MPI_COMM_WORLD, db.sampling, true );
+    app.getSolidificationData( grid, grid.getComm(), db.sampling, true );
     app.getLowerSolidificationDataBounds( grid.getComm() );
     app.getUpperSolidificationDataBounds( grid.getComm() );
 }

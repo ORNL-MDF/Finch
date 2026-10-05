@@ -51,10 +51,22 @@ class Solver
     // heat source parameters
     double power_;
     double position_[3];
+
+    // Original Gaussian heat source parameters
     double r_[3];
     double A_inv_[3];
+
+    // Shared
     double I0_;
     double w_max_;
+
+    // Dynamic super-Gaussian parameters (Coleman et al. 2024)
+    // Only used when source.shape == "dynamic"
+    bool dynamic_beam_;
+    double sigma_[3]; // half-widths for super-Gaussian radial profile
+    double k_;        // radial distribution parameter
+    double m_;        // volumetric shape parameter
+    double depth_;    // heat source depth (= two_sigma[2])
 
   public:
     Solver( Inputs db, LocalMeshType local_mesh )
@@ -85,15 +97,52 @@ class Solver
             position_[d] = 0.0;
         }
 
-        // heat source parameter constants
-        for ( std::size_t d = 0; d < 3; ++d )
-        {
-            r_[d] = db.source.two_sigma[d] / Kokkos::sqrt( 2.0 );
-            A_inv_[d] = 1.0 / r_[d] / r_[d];
-        }
+        dynamic_beam_ = ( db.source.shape == "dynamic" );
 
-        I0_ = ( 2.0 * db.source.absorption ) /
-              ( M_PI * Kokkos::sqrt( M_PI ) * r_[0] * r_[1] * r_[2] );
+        if ( !dynamic_beam_ )
+        {
+            // Original isotropic 3D Gaussian
+            for ( std::size_t d = 0; d < 3; ++d )
+            {
+                r_[d] = db.source.two_sigma[d] / Kokkos::sqrt( 2.0 );
+                A_inv_[d] = 1.0 / r_[d] / r_[d];
+            }
+
+            I0_ = ( 2.0 * db.source.absorption ) /
+                  ( M_PI * Kokkos::sqrt( M_PI ) * r_[0] * r_[1] * r_[2] );
+        }
+        else
+        {
+            // Dynamic super-Gaussian (Coleman et al. 2024, Eq. 2-6)
+            k_ = db.source.k;
+            m_ = db.source.m;
+
+            // sigma_i = two_sigma_i / (2 * 2^(1/k))
+            double two_to_1_over_k = Kokkos::pow( 2.0, 1.0 / k_ );
+            for ( std::size_t d = 0; d < 3; ++d )
+            {
+                sigma_[d] = db.source.two_sigma[d] / ( 2.0 * two_to_1_over_k );
+            }
+
+            // Heat source depth = two_sigma[2]
+            depth_ = db.source.two_sigma[2];
+
+            // Areal normalization A0 (Eq. 3)
+            double two_to_2_over_k = Kokkos::pow( 2.0, 2.0 / k_ );
+            double rx0 = db.source.two_sigma[0] / two_to_2_over_k;
+            double ry0 = db.source.two_sigma[1] / two_to_2_over_k;
+            double A0 = M_PI * tgamma( 1.0 + 2.0 / k_ ) * rx0 * ry0;
+
+            // Depth integral factor from Eq. 6
+            double depth_factor =
+                ( tgamma( 1.0 + 1.0 / m_ ) * tgamma( 1.0 + 2.0 / m_ ) ) /
+                tgamma( 1.0 + 3.0 / m_ );
+
+            // Volume normalization V0 = A0 * depth * depth_factor (Eq. 6)
+            double V0 = A0 * depth_ * depth_factor;
+
+            I0_ = db.source.absorption / V0;
+        }
 
         // cut off for 3 standard deviations from heat source center
         w_max_ = Kokkos::log( 3 ) + 2 * Kokkos::log( 10 );
@@ -174,23 +223,48 @@ class Solver
                k_by_dx2_;
     }
 
-    // Normalized weight for the gaussian source term: x in exp(-x)
+    // Normalized weight for the source term: returned value w used as exp(-w)
+    // Branches on dynamic_beam_ set at construction time.
     KOKKOS_INLINE_FUNCTION
     auto weight( const int i, const int j, const int k ) const
     {
         double grid_loc[3];
-        double dist_to_beam[3];
         int idx[3] = { i, j, k };
-
         local_mesh_.coordinates( EntityType(), idx, grid_loc );
 
-        dist_to_beam[0] = grid_loc[0] - position_[0];
-        dist_to_beam[1] = grid_loc[1] - position_[1];
-        dist_to_beam[2] = grid_loc[2] - position_[2];
+        double dx = grid_loc[0] - position_[0];
+        double dy = grid_loc[1] - position_[1];
+        double dz = grid_loc[2] - position_[2];
 
-        return ( dist_to_beam[0] * dist_to_beam[0] * A_inv_[0] ) +
-               ( dist_to_beam[1] * dist_to_beam[1] * A_inv_[1] ) +
-               ( dist_to_beam[2] * dist_to_beam[2] * A_inv_[2] );
+        if ( !dynamic_beam_ )
+        {
+            //  Original isotropic 3D Gaussian
+            return ( dx * dx * A_inv_[0] ) + ( dy * dy * A_inv_[1] ) +
+                   ( dz * dz * A_inv_[2] );
+        }
+        else
+        {
+            //  Dynamic super-Gaussian (Coleman et al. 2024, Eq. 4-5)
+            // Normalized depth: only apply heat downward from beam center
+            double dz_norm = Kokkos::fabs( dz ) / depth_;
+            if ( dz_norm >= 1.0 )
+                return w_max_ + 1.0; // below heat source depth: no contribution
+
+            // Radius decays with depth: r(z) = sigma * (1 - |dz/d|^m)^(1/m)
+            double shape_factor =
+                Kokkos::pow( 1.0 - Kokkos::pow( dz_norm, m_ ), 1.0 / m_ );
+            double rx = sigma_[0] * shape_factor;
+            double ry = sigma_[1] * shape_factor;
+
+            // Guard against division by zero near the tip
+            if ( rx < 1e-15 || ry < 1e-15 )
+                return w_max_ + 1.0;
+
+            // Super-Gaussian radial exponent: (dx^2/rx^2 + dy^2/ry^2)^(k/2)
+            double radial =
+                ( dx * dx ) / ( rx * rx ) + ( dy * dy ) / ( ry * ry );
+            return Kokkos::pow( radial, k_ / 2.0 );
+        }
     }
 
     // Heating source term, device overload.

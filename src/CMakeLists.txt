@@ -1,4 +1,5 @@
 configure_file(Finch_Core_Config.hpp.cmakein Finch_Core_Config.hpp)
+
 file(GLOB CORE_HEADERS GLOB *.hpp)
 file(GLOB CORE_BEAM_HEADERS MovingBeam/*.hpp)
 file(GLOB CORE_SOURCE *.cpp MovingBeam/*.cpp)
@@ -6,7 +7,10 @@ file(GLOB CORE_SOURCE *.cpp MovingBeam/*.cpp)
 add_library(Core ${CORE_SOURCE})
 add_library(Finch::Core ALIAS Core)
 
-target_link_libraries(Core Cabana::Grid nlohmann_json::nlohmann_json)
+target_link_libraries(Core PUBLIC Cabana::Grid nlohmann_json::nlohmann_json)
+if( Finch_ENABLE_STORK )
+   target_link_libraries(Core PUBLIC Stork::Stork)
+endif()
 
 target_include_directories(Core PUBLIC
                            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
